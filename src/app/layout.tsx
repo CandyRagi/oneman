@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import BottomNav from "../components/BottomNav";
-import InstallButton from "../components/InstallButton";
+
 
 // 🔹 Metadata for your app
 export const metadata: Metadata = {
@@ -30,7 +30,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="min-h-screen flex flex-col bg-gray-50 antialiased">
         <main className="flex-1 pb-20">{children}</main>
-        <InstallButton />
+        
         <BottomNav />
       
       </body>

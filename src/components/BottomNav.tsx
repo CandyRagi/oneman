@@ -1,28 +1,26 @@
 "use client";
-
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 export default function BottomNav() {
   const pathname = usePathname();
-
+  
   const tabs = [
     {
       href: "/",
       label: "Home",
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
         </svg>
       ),
     },
     {
       href: "/notifications",
-      label: "Notifications",
+      label: "Activity",
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM9 17H4l5 5v-5zM15 17V7a4 4 0 00-8 0v10m8 0a1 1 0 01-1 1H8a1 1 0 01-1-1" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.73 21a2 2 0 01-3.46 0" />
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0M3.124 7.5A8.969 8.969 0 0 1 5.292 3m13.416 0a8.969 8.969 0 0 1 2.168 4.5" />
         </svg>
       ),
     },
@@ -30,8 +28,8 @@ export default function BottomNav() {
       href: "/chatbot",
       label: "Chat",
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
         </svg>
       ),
     },
@@ -39,50 +37,110 @@ export default function BottomNav() {
       href: "/profile",
       label: "Profile",
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
         </svg>
       ),
     },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50">
-      <div className="absolute inset-0 bg-white/80 backdrop-blur-xl border-t border-gray-200/60"></div>
-      <div className="relative flex items-center justify-around px-6 py-3 safe-area-pb">
-        {tabs.map((tab) => {
-          const isActive = pathname === tab.href;
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className={`relative flex flex-col items-center justify-center min-w-0 flex-1 group transition-all duration-200 ease-out ${
-                isActive ? "" : "hover:scale-105"
-              }`}
-            >
-              {isActive && (
-                <div className="absolute inset-0 mx-3 rounded-2xl bg-blue-50 scale-110 transition-all duration-300 ease-out"></div>
-              )}
-              <div
-                className={`relative z-10 flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 ${
-                  isActive
-                    ? "text-blue-600 scale-110"
-                    : "text-gray-400 group-hover:text-gray-600 group-hover:bg-gray-100"
-                }`}
-              >
-                {tab.icon}
-              </div>
-              <span
-                className={`relative z-10 mt-1 text-xs font-medium leading-none transition-all duration-200 ${
-                  isActive ? "text-blue-600" : "text-gray-500 group-hover:text-gray-700"
-                }`}
-              >
-                {tab.label}
-              </span>
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
+    <>
+      {/* Spacer to prevent content from being hidden behind nav */}
+      <div className="h-20"></div>
+      
+      <nav className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-safe">
+        {/* Backdrop with subtle gradient */}
+        <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/90 to-transparent backdrop-blur-xl"></div>
+        
+        {/* Navigation container */}
+        <div className="relative mx-auto max-w-sm">
+          {/* Main nav bar */}
+          <div className="mb-4 bg-white/80 backdrop-blur-xl rounded-3xl border border-gray-200/30 shadow-lg shadow-black/5 px-2 py-2">
+            <div className="flex items-center justify-between">
+              {tabs.map((tab, index) => {
+                const isActive = pathname === tab.href;
+                return (
+                  <Link
+                    key={tab.href}
+                    href={tab.href}
+                    className={`
+                      relative flex flex-col items-center justify-center px-4 py-3 rounded-2xl
+                      transition-all duration-300 ease-out
+                      ${isActive 
+                        ? 'bg-gradient-to-b from-blue-500 to-blue-600 shadow-lg shadow-blue-500/25 scale-105' 
+                        : 'hover:bg-gray-50 active:scale-95'
+                      }
+                      ${index !== tabs.length - 1 ? '' : ''}
+                    `}
+                  >
+                    {/* Active indicator dot */}
+                    {isActive && (
+                      <div className="absolute -top-1 w-1.5 h-1.5 bg-white rounded-full opacity-90"></div>
+                    )}
+                    
+                    {/* Icon */}
+                    <div
+                      className={`
+                        transition-all duration-300 ease-out
+                        ${isActive 
+                          ? 'text-white drop-shadow-sm' 
+                          : 'text-gray-600 group-hover:text-gray-800'
+                        }
+                      `}
+                    >
+                      {tab.icon}
+                    </div>
+                    
+                    {/* Label */}
+                    <span
+                      className={`
+                        mt-1 text-xs font-medium tracking-wide
+                        transition-all duration-300 ease-out
+                        ${isActive 
+                          ? 'text-white drop-shadow-sm' 
+                          : 'text-gray-600 group-hover:text-gray-800'
+                        }
+                      `}
+                    >
+                      {tab.label}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </nav>
+      
+      <style jsx global>{`
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+          .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom);
+          }
+        }
+        
+        /* Smooth scrolling for iOS */
+        html {
+          -webkit-overflow-scrolling: touch;
+        }
+        
+        /* Enhanced tap targets for mobile */
+        @media (hover: none) and (pointer: coarse) {
+          .tap-target {
+            min-height: 44px;
+            min-width: 44px;
+          }
+        }
+        
+        /* Prevent text selection on nav elements */
+        nav * {
+          -webkit-user-select: none;
+          user-select: none;
+          -webkit-touch-callout: none;
+          -webkit-tap-highlight-color: transparent;
+        }
+      `}</style>
+    </>
   );
 }
