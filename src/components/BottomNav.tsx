@@ -59,28 +59,25 @@ export default function BottomNav() {
                   <Link
                     key={tab.href}
                     href={tab.href}
-                    className={`
-                      relative flex flex-col items-center justify-center px-4 py-3 rounded-2xl
-                      transition-all duration-300 ease-out
-                      ${isActive 
-                        ? 'bg-gradient-to-b from-blue-500 to-blue-600 shadow-lg shadow-blue-500/25 scale-105' 
-                        : 'hover:bg-gray-50 active:scale-95'
-                      }
-                      ${index !== tabs.length - 1 ? '' : ''}
-                    `}
+                    className="relative flex-1 flex flex-col items-center justify-center py-3 transition-all duration-300 ease-out"
                   >
+                    {/* Background highlight with fixed width */}
+                    {isActive && (
+                      <div className="absolute left-3 right-3 top-0 bottom-0 bg-gradient-to-b from-blue-500 to-blue-600 rounded-2xl shadow-lg shadow-blue-500/25 scale-105"></div>
+                    )}
+                    
                     {/* Active indicator dot */}
                     {isActive && (
-                      <div className="absolute -top-1 w-1.5 h-1.5 bg-white rounded-full opacity-90"></div>
+                      <div className="absolute -top-1 w-1.5 h-1.5 bg-white rounded-full opacity-90 z-10"></div>
                     )}
                     
                     {/* Icon */}
                     <div
                       className={`
-                        transition-all duration-300 ease-out
+                        relative z-10 transition-all duration-300 ease-out
                         ${isActive 
                           ? 'text-white drop-shadow-sm' 
-                          : 'text-gray-600 group-hover:text-gray-800'
+                          : 'text-gray-600 hover:text-gray-800'
                         }
                       `}
                     >
@@ -90,11 +87,11 @@ export default function BottomNav() {
                     {/* Label */}
                     <span
                       className={`
-                        mt-1 text-xs font-medium tracking-wide
+                        relative z-10 mt-1 text-xs font-medium tracking-wide
                         transition-all duration-300 ease-out
                         ${isActive 
                           ? 'text-white drop-shadow-sm' 
-                          : 'text-gray-600 group-hover:text-gray-800'
+                          : 'text-gray-600 hover:text-gray-800'
                         }
                       `}
                     >
