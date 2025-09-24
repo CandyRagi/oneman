@@ -49,14 +49,9 @@ export default function BottomNav() {
       {/* Spacer to prevent content from being hidden behind nav */}
       <div className="h-20"></div>
       
-      <nav className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-safe">
-        {/* Backdrop with subtle gradient */}
-        
-        
-        {/* Navigation container */}
-        <div className="relative mx-auto max-w-sm">
-          {/* Main nav bar */}
-          <div className="mb-4 bg-white/80 backdrop-blur-xl rounded-3xl border border-gray-200/30 shadow-lg shadow-black/5 px-2 py-2">
+      <nav className="fixed bottom-0 left-0 right-0 z-50">
+        {/* Main nav bar */}
+        <div className="bg-white/80 backdrop-blur-xl rounded-t-3xl border-t border-gray-200/30 shadow-lg shadow-black/5 px-2 py-2 pb-safe">
             <div className="flex items-center justify-between">
               {tabs.map((tab, index) => {
                 const isActive = pathname === tab.href;
@@ -108,7 +103,6 @@ export default function BottomNav() {
                   </Link>
                 );
               })}
-            </div>
           </div>
         </div>
       </nav>
