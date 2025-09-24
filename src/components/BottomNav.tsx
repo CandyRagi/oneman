@@ -51,7 +51,7 @@ export default function BottomNav() {
       
       <nav className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-safe">
         {/* Backdrop with subtle gradient */}
-        <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/90 to-transparent backdrop-blur-xl"></div>
+        
         
         {/* Navigation container */}
         <div className="relative mx-auto max-w-sm">
