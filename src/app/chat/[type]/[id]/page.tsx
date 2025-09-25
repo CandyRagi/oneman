@@ -294,27 +294,27 @@ export default function ChatPage() {
     }
   };
 
-  const handleRemoveMember = async (memberId: string) => {
-    if (!user || !groupData || memberId === groupData.adminId) return;
+  // const handleRemoveMember = async (memberId: string) => {
+  //   if (!user || !groupData || memberId === groupData.adminId) return;
 
-    try {
-      await updateDoc(doc(db, type === 'sites' ? 'sites' : 'stores', groupId), {
-        members: arrayRemove(memberId)
-      });
+  //   try {
+  //     await updateDoc(doc(db, type === 'sites' ? 'sites' : 'stores', groupId), {
+  //       members: arrayRemove(memberId)
+  //     });
 
-      // Add system message
-      await addDoc(collection(db, type === 'sites' ? 'sites' : 'stores', groupId, 'messages'), {
-        text: `A member was removed from the group`,
-        timestamp: new Date(),
-        userId: 'system',
-        userName: 'System',
-        type: 'text'
-      });
-    } catch (error) {
-      console.error('Error removing member:', error);
-      alert('Failed to remove member. Please try again.');
-    }
-  };
+  //     // Add system message
+  //     await addDoc(collection(db, type === 'sites' ? 'sites' : 'stores', groupId, 'messages'), {
+  //       text: `A member was removed from the group`,
+  //       timestamp: new Date(),
+  //       userId: 'system',
+  //       userName: 'System',
+  //       type: 'text'
+  //     });
+  //   } catch (error) {
+  //     console.error('Error removing member:', error);
+  //     alert('Failed to remove member. Please try again.');
+  //   }
+  // };
 
   if (isLoading) {
     return (
@@ -681,7 +681,7 @@ export default function ChatPage() {
           <div className="bg-gray-800/90 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 max-w-md w-full shadow-2xl shadow-black/50">
             <div className="text-center mb-6">
               <h3 className="text-xl font-semibold text-white mb-2">Add Member</h3>
-              <p className="text-gray-400 text-sm">Enter the user's email or UID to add them</p>
+              <p className="text-gray-400 text-sm">Enter the user&apos;s email or UID to add them</p>
             </div>
 
             <div className="space-y-4">
