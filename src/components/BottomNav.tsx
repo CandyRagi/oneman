@@ -51,15 +51,15 @@ export default function BottomNav() {
       
       <nav className="fixed bottom-0 left-0 right-0 z-50">
         {/* Main nav bar */}
-        <div className="bg-white/80 backdrop-blur-xl rounded-t-3xl border-t border-gray-200/30 shadow-lg shadow-black/5 px-2 py-2 pb-safe">
+        <div className="bg-white/80 backdrop-blur-xl rounded-t-3xl border-t border-gray-200/30 shadow-lg shadow-black/5 px-4 py-3 pb-safe">
             <div className="flex items-center justify-between">
-              {tabs.map((tab, index) => {
+              {tabs.map((tab) => {
                 const isActive = pathname === tab.href;
                 return (
                   <Link
                     key={tab.href}
                     href={tab.href}
-                    className="relative flex-1 flex flex-col items-center justify-center py-3 transition-all duration-300 ease-out"
+                    className="relative flex-1 flex flex-col items-center justify-center py-2 transition-all duration-300 ease-out"
                   >
                     {/* Background highlight with fixed width */}
                     {isActive && (

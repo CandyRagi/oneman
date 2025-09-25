@@ -27,8 +27,12 @@ export default function SignupPage() {
       });
 
       router.push("/"); // redirect to home after signup
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An unexpected error occurred");
+      }
     }
   };
 
