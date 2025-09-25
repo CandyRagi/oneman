@@ -2,9 +2,9 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth, storage } from "../../database/firebase";
+import { auth } from "../../database/firebase";
 import { signOut, updateProfile } from "firebase/auth";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+// Cloudinary upload uses signed params via API route
 import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -14,6 +14,8 @@ export default function SettingsPage() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [localPhotoURL, setLocalPhotoURL] = useState<string | null>(null);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -39,15 +41,66 @@ export default function SettingsPage() {
     if (!file || !user) return;
     try {
       setIsUploading(true);
-      const filePath = `profilePhotos/${user.uid}/${Date.now()}_${file.name}`;
-      const storageRef = ref(storage, filePath);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
-      await updateProfile(user, { photoURL: url });
+      setUploadProgress(0);
+      // 1) Ask server for signed params
+      const publicId = `${user.uid}/profile`;
+      const signRes = await fetch("/api/cloudinary-sign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ publicId, folder: "profilePhotos", overwrite: true }),
+      });
+      if (!signRes.ok) throw new Error("Failed to get Cloudinary signature");
+      const { timestamp, signature, cloudName, apiKey, folder } = await signRes.json();
+
+      // 2) Build multipart form
+      const form = new FormData();
+      form.append("file", file);
+      form.append("api_key", apiKey);
+      form.append("timestamp", String(timestamp));
+      form.append("signature", signature);
+      form.append("public_id", publicId);
+      if (folder) form.append("folder", folder);
+
+      // 3) Upload via XHR for progress
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`);
+        xhr.upload.onprogress = (evt) => {
+          if (evt.lengthComputable) {
+            const pct = (evt.loaded / evt.total) * 100;
+            setUploadProgress(pct);
+          }
+        };
+        xhr.onreadystatechange = async () => {
+          if (xhr.readyState === 4) {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                const response = JSON.parse(xhr.responseText);
+                const url: string = response.secure_url;
+                const current = auth.currentUser;
+                if (current) {
+                  await updateProfile(current, { photoURL: url });
+                  await current.reload();
+                }
+                setLocalPhotoURL(url);
+                resolve();
+              } catch (err) {
+                reject(err);
+              }
+            } else {
+              reject(new Error(`Cloudinary upload failed: ${xhr.status} ${xhr.responseText}`));
+            }
+          }
+        };
+        xhr.onerror = () => reject(new Error("Network error during Cloudinary upload"));
+        xhr.send(form);
+      });
     } catch (error) {
       console.error("Error uploading profile photo:", error);
+      alert("Upload failed or stalled. Please check your connection and permissions.");
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
       // reset input so selecting the same file again works
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -77,8 +130,8 @@ export default function SettingsPage() {
             <div className="relative">
               <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 p-1 shadow-lg shadow-blue-500/20">
                 <div className="w-full h-full rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
-                  {user?.photoURL ? (
-                    <Image src={user.photoURL} alt="Profile" width={96} height={96} className="object-cover w-full h-full" />
+                  {localPhotoURL || user?.photoURL ? (
+                    <Image unoptimized src={localPhotoURL || (user?.photoURL as string)} alt="Profile" width={96} height={96} className="object-cover w-full h-full" />
                   ) : (
                     <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
@@ -100,7 +153,9 @@ export default function SettingsPage() {
             <div>
               <h2 className="text-xl font-semibold text-white mb-1">{user?.displayName || (user?.email ? user.email.split("@")[0] : "Anonymous")}</h2>
               <p className="text-gray-400 text-sm">{user?.email || "no-email"}</p>
-              {isUploading && <p className="text-xs text-blue-300 mt-1">Uploading...</p>}
+              {isUploading && (
+                <p className="text-xs text-blue-300 mt-1">Uploading {Math.round(uploadProgress)}%</p>
+              )}
             </div>
           </div>
         </div>

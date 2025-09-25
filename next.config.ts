@@ -17,6 +17,6 @@ module.exports = withPWA({
     scrollRestoration: true,             // optional: smoother reloads
   },
   images: {
-    domains: [],                         // add external domains if you load images
+    domains: ["res.cloudinary.com"],                         // add external domains if you load images
   },
 });
