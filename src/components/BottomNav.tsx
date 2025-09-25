@@ -51,7 +51,7 @@ export default function BottomNav() {
       
       <nav className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-4">
         {/* Main nav bar */}
-        <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-gray-200/30 shadow-lg shadow-black/5 px-4 py-3 pb-safe mx-auto max-w-sm">
+        <div className="bg-gray-900/80 backdrop-blur-xl rounded-3xl border border-gray-700/50 shadow-lg shadow-black/30 px-4 pt-3 pb-7 pb-safe mx-auto max-w-sm">
             <div className="flex items-center justify-between">
               {tabs.map((tab) => {
                 const isActive = pathname === tab.href;
@@ -59,11 +59,13 @@ export default function BottomNav() {
                   <Link
                     key={tab.href}
                     href={tab.href}
-                    className="relative flex-1 flex flex-col items-center justify-center py-3 transition-all duration-300 ease-out"
+                    className="relative flex-1 flex flex-col items-center justify-center pt-2 pb-5 gap-1 transition-all duration-300 ease-out"
+
                   >
                     {/* Background highlight with fixed width */}
                     {isActive && (
-                      <div className="absolute left-3 right-3 top-1 bottom-1 bg-gradient-to-b from-blue-500 to-blue-600 rounded-2xl shadow-lg shadow-blue-500/25 scale-105"></div>
+                      <div className="absolute top-1 bottom-3 left-3 right-3 bg-gradient-to-b from-blue-500 to-blue-600 rounded-2xl shadow-lg shadow-blue-500/25"></div>
+
                     )}
                     
                     {/* Icon */}
@@ -72,7 +74,7 @@ export default function BottomNav() {
                         relative z-10 transition-all duration-300 ease-out flex items-center justify-center
                         ${isActive 
                           ? 'text-white drop-shadow-sm' 
-                          : 'text-gray-600 hover:text-gray-800'
+                          : 'text-gray-300 hover:text-white'
                         }
                       `}
                     >
@@ -82,11 +84,11 @@ export default function BottomNav() {
                     {/* Label */}
                     <span
                       className={`
-                        relative z-10 mt-2 text-xs font-medium tracking-wide text-center
+                        relative z-10 text-xs font-medium tracking-wide text-center leading-none
                         transition-all duration-300 ease-out
                         ${isActive 
                           ? 'text-white drop-shadow-sm' 
-                          : 'text-gray-600 hover:text-gray-800'
+                          : 'text-gray-300 hover:text-white'
                         }
                       `}
                     >
