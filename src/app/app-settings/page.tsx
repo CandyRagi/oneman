@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth } from "../../database/firebase";
+// import { auth } from "../../database/firebase"; // Not used in this component
 import { deleteUser } from "firebase/auth";
 import { useAuth } from "@/hooks/useAuth";
 

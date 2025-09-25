@@ -20,7 +20,7 @@ interface Message {
     sourceType?: 'site' | 'store';
     sourceId?: string;
   };
-  timestamp: any;
+  timestamp: Date | { toDate(): Date };
   userId: string;
   userName: string;
   userPhotoURL?: string;
@@ -258,7 +258,7 @@ export default function ChatPage() {
     }
   };
 
-  const formatTime = (timestamp: any) => {
+  const formatTime = (timestamp: Date | { toDate(): Date }) => {
     const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
