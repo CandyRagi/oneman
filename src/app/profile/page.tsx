@@ -32,6 +32,10 @@ export default function SettingsPage() {
     router.push("/edit-profile");
   };
 
+  const handleAppSettings = () => {
+    router.push("/app-settings");
+  };
+
   const handlePickImage = () => {
     fileInputRef.current?.click();
   };
@@ -184,7 +188,7 @@ export default function SettingsPage() {
           </button>
 
           {/* Account Settings */}
-          <button className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-700/30 transition-all duration-200 border-b border-gray-700/30">
+          <button onClick={handleAppSettings} className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-700/30 transition-all duration-200 border-b border-gray-700/30">
             <div className="flex items-center space-x-4">
               <div className="w-10 h-10 rounded-2xl bg-purple-500/20 flex items-center justify-center">
                 <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
