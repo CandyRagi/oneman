@@ -259,7 +259,7 @@ export default function ChatPage() {
   };
 
   const formatTime = (timestamp: Date | { toDate(): Date }) => {
-    const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
+    const date = 'toDate' in timestamp ? timestamp.toDate() : timestamp;
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
