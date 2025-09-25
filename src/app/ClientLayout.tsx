@@ -1,13 +1,14 @@
 "use client";
 
 import { useAuth } from "@/hooks/useAuth";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import BottomNav from "../components/BottomNav";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -23,10 +24,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     );
   }
 
+  // Check if current page is a chat page
+  const isChatPage = pathname?.startsWith('/chat/');
+  
   return (
     <>
-      <main className="flex-1 pb-20">{children}</main>
-      {user && <BottomNav />}
+      <main className={isChatPage ? "flex-1" : "flex-1 pb-20"}>{children}</main>
+      {user && !isChatPage && <BottomNav />}
     </>
   );
 }
