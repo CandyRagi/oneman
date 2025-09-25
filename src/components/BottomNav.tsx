@@ -64,7 +64,7 @@ export default function BottomNav() {
                   >
                     {/* Background highlight with fixed width */}
                     {isActive && (
-                      <div className="absolute top-1 bottom-3 left-3 right-3 bg-gradient-to-b from-blue-500 to-blue-600 rounded-2xl shadow-lg shadow-blue-500/25"></div>
+                      <div className="absolute top-0.5 bottom-3 left-3 right-3 bg-gradient-to-b from-blue-500 to-blue-600 rounded-2xl shadow-lg shadow-blue-500/25"></div>
 
                     )}
                     
