@@ -12,12 +12,21 @@ export default function AccountSettingsPage() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
+
+  // Simulate page loading
+  useState(() => {
+    const timer = setTimeout(() => {
+      setPageLoading(false);
+    }, 500);
+    return () => clearTimeout(timer);
+  });
 
   const handleBack = () => {
     router.back();
   };
 
- 
+
   const handleAbout = () => {
     router.push("/about");
   };
@@ -43,7 +52,21 @@ export default function AccountSettingsPage() {
   };
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black flex flex-col overflow-hidden">
+    <>
+      {/* Loading Screen */}
+      {pageLoading && (
+        <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center z-50">
+          <div className="text-center">
+            <div className="relative">
+              <div className="w-20 h-20 border-4 border-gray-700 rounded-full animate-pulse"></div>
+              <div className="absolute inset-0 w-20 h-20 border-4 border-transparent border-t-purple-500 rounded-full animate-spin"></div>
+            </div>
+            
+          </div>
+        </div>
+      )}
+
+      <div className={`fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black flex flex-col overflow-hidden transition-opacity duration-500 ${pageLoading ? 'opacity-0' : 'opacity-100'}`}>
       {/* Background decoration */}
       <div className="absolute top-0 left-0 w-full h-full">
         <div className="absolute top-24 right-8 w-40 h-40 bg-blue-900/20 rounded-full blur-3xl"></div>
@@ -69,7 +92,7 @@ export default function AccountSettingsPage() {
       {/* Main Content */}
       <div className="relative z-10 flex-1 px-6 overflow-y-auto">
         {/* Notifications Section */}
-        <div className="bg-gray-800/40 backdrop-blur-xl border border-gray-700/30 rounded-3xl p-6 mb-6 shadow-lg shadow-black/20">
+        <div className="bg-gray-800/40 backdrop-blur-xl border border-gray-700/30 rounded-3xl p-6 mb-6 shadow-lg shadow-black/20 animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <h3 className="text-lg font-semibold text-white mb-4">Preferences</h3>
           
           <div className="flex items-center justify-between">
@@ -100,7 +123,7 @@ export default function AccountSettingsPage() {
         </div>
 
         {/* Management Options */}
-        <div className="bg-gray-800/40 backdrop-blur-xl border border-gray-700/30 rounded-3xl overflow-hidden shadow-lg shadow-black/20 mb-6">
+        <div className="bg-gray-800/40 backdrop-blur-xl border border-gray-700/30 rounded-3xl overflow-hidden shadow-lg shadow-black/20 mb-6 animate-slide-up" style={{ animationDelay: '0.2s' }}>
           
 
           {/* About */}
@@ -126,7 +149,7 @@ export default function AccountSettingsPage() {
         </div>
 
         {/* Danger Zone */}
-        <div className="bg-red-900/20 backdrop-blur-xl border border-red-800/30 rounded-3xl p-6 mb-8 shadow-lg shadow-red-900/10">
+        <div className="bg-red-900/20 backdrop-blur-xl border border-red-800/30 rounded-3xl p-6 mb-8 shadow-lg shadow-red-900/10 animate-slide-up" style={{ animationDelay: '0.3s' }}>
           <h3 className="text-lg font-semibold text-red-400 mb-4 flex items-center">
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
@@ -214,7 +237,23 @@ export default function AccountSettingsPage() {
         * {
           -webkit-tap-highlight-color: transparent;
         }
+        
+        @keyframes slideInUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-slide-up {
+          animation: slideInUp 0.6s ease-out forwards;
+        }
       `}</style>
     </div>
+    </>
   );
 }

@@ -11,6 +11,7 @@ export default function EditProfilePage() {
   const router = useRouter();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const [displayName, setDisplayName] = useState(user?.displayName || "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -21,6 +22,14 @@ export default function EditProfilePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [localPhotoURL, setLocalPhotoURL] = useState<string | null>(null);
+
+  // Simulate page loading
+  useState(() => {
+    const timer = setTimeout(() => {
+      setPageLoading(false);
+    }, 500);
+    return () => clearTimeout(timer);
+  });
 
   const handleBack = () => {
     router.back();
@@ -129,7 +138,17 @@ export default function EditProfilePage() {
   };
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black flex flex-col overflow-hidden">
+    <>
+      {/* Loading Screen */}
+      {pageLoading && (
+        <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center z-50">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+          </div>
+        </div>
+      )}
+
+      <div className={`fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black flex flex-col overflow-hidden transition-opacity duration-500 ${pageLoading ? 'opacity-0' : 'opacity-100'}`}>
       {/* Background decoration */}
       <div className="absolute top-0 left-0 w-full h-full">
         <div className="absolute top-24 right-8 w-40 h-40 bg-blue-900/20 rounded-full blur-3xl"></div>
@@ -155,7 +174,7 @@ export default function EditProfilePage() {
       {/* Main Content */}
       <div className="relative z-10 flex-1 px-6 overflow-y-auto">
         {/* Profile Photo Section */}
-        <div className="bg-gray-800/40 backdrop-blur-xl border border-gray-700/30 rounded-3xl p-6 mb-6 shadow-lg shadow-black/20">
+        <div className="bg-gray-800/40 backdrop-blur-xl border border-gray-700/30 rounded-3xl p-6 mb-6 shadow-lg shadow-black/20 animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <div className="flex flex-col items-center space-y-4">
             <div className="relative">
               <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 p-1 shadow-lg shadow-blue-500/20">
@@ -202,7 +221,7 @@ export default function EditProfilePage() {
         </div>
 
         {/* Profile Information */}
-        <div className="bg-gray-800/40 backdrop-blur-xl border border-gray-700/30 rounded-3xl p-6 mb-6 shadow-lg shadow-black/20">
+        <div className="bg-gray-800/40 backdrop-blur-xl border border-gray-700/30 rounded-3xl p-6 mb-6 shadow-lg shadow-black/20 animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <h3 className="text-lg font-semibold text-white mb-4">Profile Information</h3>
           
           <div className="space-y-4">
@@ -232,7 +251,7 @@ export default function EditProfilePage() {
         </div>
 
         {/* Change Password Section */}
-        <div className="bg-gray-800/40 backdrop-blur-xl border border-gray-700/30 rounded-3xl p-6 mb-6 shadow-lg shadow-black/20">
+        <div className="bg-gray-800/40 backdrop-blur-xl border border-gray-700/30 rounded-3xl p-6 mb-6 shadow-lg shadow-black/20 animate-slide-up" style={{ animationDelay: '0.3s' }}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-white">Change Password</h3>
             <button
@@ -289,7 +308,8 @@ export default function EditProfilePage() {
         <button
           onClick={handleSaveProfile}
           disabled={isLoading || isUploading}
-          className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-4 rounded-xl font-semibold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mb-8"
+          className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-4 rounded-xl font-semibold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mb-8 animate-slide-up"
+          style={{ animationDelay: '0.4s' }}
         >
           {isLoading ? (
             <div className="flex items-center justify-center space-x-2">
@@ -317,7 +337,23 @@ export default function EditProfilePage() {
         * {
           -webkit-tap-highlight-color: transparent;
         }
+        
+        @keyframes slideInUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-slide-up {
+          animation: slideInUp 0.6s ease-out forwards;
+        }
       `}</style>
     </div>
+    </>
   );
 }
