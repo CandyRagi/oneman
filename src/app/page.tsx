@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
+import { db } from "@/database/firebase";
+import { collection, query, where, getDocs, addDoc, doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 
 interface Site {
   id: string;
@@ -13,6 +15,9 @@ interface Site {
   lastActivity: string;
   memberCount: number;
   unreadCount: number;
+  adminId: string;
+  members: string[];
+  createdAt: any;
 }
 
 interface Store {
@@ -23,6 +28,9 @@ interface Store {
   lastActivity: string;
   memberCount: number;
   unreadCount: number;
+  adminId: string;
+  members: string[];
+  createdAt: any;
 }
 
 export default function HomePage() {
@@ -40,56 +48,54 @@ export default function HomePage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Sample data - replace with real data from your database
-  const [sites, setSites] = useState<Site[]>([
-    {
-      id: '1',
-      name: 'Downtown Office Complex',
-      location: 'Vancouver, BC',
-      photoURL: null,
-      lastActivity: '2 hours ago',
-      memberCount: 12,
-      unreadCount: 3
-    },
-    {
-      id: '2',
-      name: 'Residential Tower Project',
-      location: 'Surrey, BC',
-      photoURL: null,
-      lastActivity: '1 day ago',
-      memberCount: 8,
-      unreadCount: 0
-    }
-  ]);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
 
-  const [stores, setStores] = useState<Store[]>([
-    {
-      id: '1',
-      name: 'Home Depot Surrey',
-      location: 'Surrey, BC',
-      photoURL: null,
-      lastActivity: '30 mins ago',
-      memberCount: 25,
-      unreadCount: 7
-    },
-    {
-      id: '2',
-      name: 'Rona Vancouver',
-      location: 'Vancouver, BC',
-      photoURL: null,
-      lastActivity: '3 hours ago',
-      memberCount: 18,
-      unreadCount: 1
-    }
-  ]);
+  // Load user's sites and stores
+  useEffect(() => {
+    const loadUserData = async () => {
+      if (!user) return;
+      
+      try {
+        setPageLoading(true);
+        
+        // Load sites where user is a member
+        const sitesQuery = query(
+          collection(db, 'sites'),
+          where('members', 'array-contains', user.uid)
+        );
+        const sitesSnapshot = await getDocs(sitesQuery);
+        const sitesData = sitesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          memberCount: doc.data().members?.length || 0,
+          unreadCount: 0 // TODO: Calculate from messages
+        })) as Site[];
+        setSites(sitesData);
 
-  // Simulate page loading
-  useState(() => {
-    const timer = setTimeout(() => {
-      setPageLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  });
+        // Load stores where user is a member
+        const storesQuery = query(
+          collection(db, 'stores'),
+          where('members', 'array-contains', user.uid)
+        );
+        const storesSnapshot = await getDocs(storesQuery);
+        const storesData = storesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          memberCount: doc.data().members?.length || 0,
+          unreadCount: 0 // TODO: Calculate from messages
+        })) as Store[];
+        setStores(storesData);
+        
+      } catch (error) {
+        console.error('Error loading user data:', error);
+      } finally {
+        setPageLoading(false);
+      }
+    };
+
+    loadUserData();
+  }, [user]);
 
   const handleAddClick = () => {
     setShowAddOverlay(true);
@@ -116,7 +122,7 @@ export default function HomePage() {
   };
 
   const handleCreate = async () => {
-    if (!name.trim() || !location.trim()) {
+    if (!name.trim() || !location.trim() || !user) {
       alert('Please fill in all required fields');
       return;
     }
@@ -124,15 +130,55 @@ export default function HomePage() {
     setIsCreating(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      let photoURL = null;
       
-      const newItem = {
-        id: Date.now().toString(),
+      // Upload photo to Cloudinary if selected
+      if (photoFile) {
+        const publicId = `${user.uid}/${activeTab}/${Date.now()}`;
+        const signRes = await fetch("/api/cloudinary-sign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ publicId, folder: activeTab, overwrite: true }),
+        });
+        
+        if (!signRes.ok) throw new Error("Failed to get Cloudinary signature");
+        const { timestamp, signature, cloudName, apiKey, folder } = await signRes.json();
+
+        const form = new FormData();
+        form.append("file", photoFile);
+        form.append("api_key", apiKey);
+        form.append("timestamp", String(timestamp));
+        form.append("signature", signature);
+        form.append("public_id", publicId);
+        if (folder) form.append("folder", folder);
+
+        const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+          method: "POST",
+          body: form,
+        });
+        
+        if (!uploadRes.ok) throw new Error("Cloudinary upload failed");
+        const uploadData = await uploadRes.json();
+        photoURL = uploadData.secure_url;
+      }
+      
+      // Create document in Firebase
+      const newItemData = {
         name: name.trim(),
         location: location.trim(),
-        photoURL: photoPreview,
-        lastActivity: 'Just created',
+        photoURL,
+        adminId: user.uid,
+        members: [user.uid],
+        createdAt: new Date(),
+        lastActivity: 'Just created'
+      };
+
+      const collectionName = activeTab === 'sites' ? 'sites' : 'stores';
+      const docRef = await addDoc(collection(db, collectionName), newItemData);
+      
+      const newItem = {
+        id: docRef.id,
+        ...newItemData,
         memberCount: 1,
         unreadCount: 0
       };
