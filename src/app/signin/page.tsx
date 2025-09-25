@@ -16,12 +16,8 @@ export default function SigninPage() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       router.push("/"); // redirect after login
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("An unexpected error occurred");
-      }
+    } catch (err: any) {
+      setError(err.message);
     }
   };
 
@@ -88,7 +84,7 @@ export default function SigninPage() {
           {/* Sign up link */}
           <div className="text-center pt-2">
             <p className="text-gray-600 text-sm">
-              Don&apos;t have an account?{" "}
+              Don't have an account?{" "}
               <span 
                 className="text-blue-600 font-medium hover:text-blue-700 cursor-pointer transition-colors duration-200" 
                 onClick={() => router.push("/signup")}
