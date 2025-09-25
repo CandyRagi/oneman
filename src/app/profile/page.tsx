@@ -35,17 +35,8 @@ export default function SettingsPage() {
 
       {/* Header */}
       <div className="relative z-10 px-6 pt-12 pb-8">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => router.back()}
-            className="p-2 rounded-2xl bg-gray-800/50 backdrop-blur-xl border border-gray-700/30 hover:bg-gray-700/50 transition-all duration-200"
-          >
-            <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-            </svg>
-          </button>
-          <h1 className="text-2xl font-semibold text-white">Settings</h1>
-          <div className="w-10"></div> {/* Spacer for centering */}
+        <div className="text-center">
+          <h1 className="text-2xl font-semibold text-white">PROFILE</h1>
         </div>
       </div>
 
