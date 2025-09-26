@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/database/firebase";
-import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, updateDoc, arrayUnion, getDocs } from "firebase/firestore";
 import Image from "next/image";
 import BackButton from "@/components/BackButton";
 
@@ -283,9 +283,22 @@ export default function ChatPage() {
 
     setIsSearching(true);
     try {
-      const response = await fetch(`/api/search-users-email?q=${encodeURIComponent(searchTerm)}`);
-      const data = await response.json();
-      setSearchResults(data.users || []);
+      // Search directly from client side where we have auth context
+      const usersRef = collection(db, 'users');
+      const snapshot = await getDocs(usersRef);
+      
+      const allUsers = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as SearchUser[];
+
+      // Filter users by email (case-insensitive partial match)
+      const filteredUsers = allUsers.filter(user => 
+        user.email && 
+        user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      ).slice(0, 10); // Limit to 10 results
+
+      setSearchResults(filteredUsers);
     } catch (error) {
       console.error('Error searching users:', error);
       setSearchResults([]);
