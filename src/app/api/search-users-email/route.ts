@@ -28,7 +28,13 @@ export async function GET(request: Request) {
     const users = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    }));
+    })) as Array<{
+      id: string;
+      username?: string;
+      email?: string;
+      displayName?: string;
+      photoURL?: string;
+    }>;
 
     console.log('Users found by email:', users);
     return NextResponse.json({ users });

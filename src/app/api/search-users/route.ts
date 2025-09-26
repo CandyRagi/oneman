@@ -22,7 +22,13 @@ export async function GET(request: Request) {
     const allUsers = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    }));
+    })) as Array<{
+      id: string;
+      username?: string;
+      email?: string;
+      displayName?: string;
+      photoURL?: string;
+    }>;
 
     // Filter users by username (case-insensitive partial match)
     const filteredUsers = allUsers.filter(user => 
