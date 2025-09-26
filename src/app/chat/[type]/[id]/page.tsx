@@ -45,6 +45,13 @@ interface GroupData {
   materials: Material[];
 }
 
+interface SearchUser {
+  id: string;
+  displayName?: string;
+  email: string;
+  photoURL?: string;
+}
+
 export default function ChatPage() {
   const params = useParams();
   const router = useRouter();
@@ -64,7 +71,7 @@ export default function ChatPage() {
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
   const [newMemberEmail, setNewMemberEmail] = useState("");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
