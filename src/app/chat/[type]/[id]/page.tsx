@@ -47,6 +47,7 @@ interface GroupData {
 
 interface SearchUser {
   id: string;
+  username: string;
   displayName?: string;
   email: string;
   photoURL?: string;
@@ -282,7 +283,7 @@ export default function ChatPage() {
 
     setIsSearching(true);
     try {
-      const response = await fetch(`/api/search-users?q=${encodeURIComponent(searchTerm)}`);
+      const response = await fetch(`/api/search-users-email?q=${encodeURIComponent(searchTerm)}`);
       const data = await response.json();
       setSearchResults(data.users || []);
     } catch (error) {
@@ -293,7 +294,7 @@ export default function ChatPage() {
     }
   };
 
-  const handleAddMember = async (memberId: string, memberName: string) => {
+  const handleAddMember = async (memberId: string, memberEmail: string) => {
     if (!user || !groupData) return;
 
     try {
@@ -303,7 +304,7 @@ export default function ChatPage() {
 
       // Add system message
       await addDoc(collection(db, type === 'sites' ? 'sites' : 'stores', groupId, 'messages'), {
-        text: `${memberName} was added to the group`,
+        text: `${memberEmail} was added to the group`,
         timestamp: new Date(),
         userId: 'system',
         userName: 'System',
@@ -708,20 +709,20 @@ export default function ChatPage() {
           <div className="bg-gray-800/90 backdrop-blur-xl border border-gray-700/50 rounded-t-3xl sm:rounded-3xl p-6 w-full sm:max-w-md shadow-2xl shadow-black/50 max-h-[80vh] sm:max-h-none">
             <div className="text-center mb-6">
               <h3 className="text-lg font-semibold text-white mb-2">Add Member</h3>
-              <p className="text-gray-400 text-sm">Search for users to add to this {type}</p>
+              <p className="text-gray-400 text-sm">Search for users by email to add to this {type}</p>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Search by username or email</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Search by email</label>
                 <input
-                  type="text"
+                  type="email"
                   value={newMemberEmail}
                   onChange={(e) => {
                     setNewMemberEmail(e.target.value);
                     searchUsers(e.target.value);
                   }}
-                  placeholder="Type to search users..."
+                  placeholder="Type email to search..."
                   className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
                 />
                 {isSearching && (
@@ -738,7 +739,7 @@ export default function ChatPage() {
                   {searchResults.map((user) => (
                     <button
                       key={user.id}
-                      onClick={() => handleAddMember(user.id, user.displayName || user.email)}
+                      onClick={() => handleAddMember(user.id, user.email)}
                       className="w-full p-3 bg-gray-700/50 rounded-xl text-left hover:bg-gray-600/50 transition-colors duration-200"
                     >
                       <div className="flex items-center space-x-3">
@@ -759,8 +760,8 @@ export default function ChatPage() {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-white font-medium truncate">{user.displayName || user.email}</p>
-                          <p className="text-gray-400 text-sm truncate">{user.email}</p>
+                          <p className="text-white font-medium truncate">{user.email}</p>
+                          <p className="text-gray-400 text-sm truncate">{user.displayName || user.username}</p>
                         </div>
                         <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />

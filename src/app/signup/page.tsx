@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { auth, db } from "../../database/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 export default function SignupPage() {
@@ -21,20 +21,20 @@ export default function SignupPage() {
 
       // Save extra fields in Firestore
       await setDoc(doc(db, "users", user.uid), {
-        username,
+        username: username.toLowerCase().trim(),
         email,
+        displayName: username,
         createdAt: new Date(),
       });
 
       router.push("/"); // redirect to home after signup
     } catch (err: unknown) {
-  if (err instanceof Error) {
-    setError(err.message);
-  } else {
-    setError("An unexpected error occurred");
-  }
-}
-
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An unexpected error occurred");
+      }
+    }
   };
 
   return (

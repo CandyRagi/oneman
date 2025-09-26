@@ -1,34 +1,43 @@
 import { NextResponse } from "next/server";
 import { db } from "@/database/firebase";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { collection, query, where, getDocs, limit, orderBy } from "firebase/firestore";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const searchTerm = searchParams.get('q');
     
+    console.log('Search term:', searchTerm);
+    
     if (!searchTerm || searchTerm.length < 2) {
       return NextResponse.json({ users: [] });
     }
 
-    // Search by email (since we don't have a separate users collection yet)
-    // In a real app, you'd have a users collection with displayName, email, etc.
-    const usersQuery = query(
-      collection(db, 'users'),
-      where('email', '>=', searchTerm),
-      where('email', '<=', searchTerm + '\uf8ff'),
-      limit(10)
-    );
-
-    const snapshot = await getDocs(usersQuery);
-    const users = snapshot.docs.map(doc => ({
+    // Get all users and filter client-side to avoid index requirements
+    const usersRef = collection(db, 'users');
+    console.log('Executing query...');
+    const snapshot = await getDocs(usersRef);
+    console.log('Query results:', snapshot.docs.length);
+    
+    const allUsers = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
 
-    return NextResponse.json({ users });
+    // Filter users by username (case-insensitive partial match)
+    const filteredUsers = allUsers.filter(user => 
+      user.username && 
+      user.username.toLowerCase().includes(searchTerm.toLowerCase())
+    ).slice(0, 10); // Limit to 10 results
+
+    console.log('Users found:', filteredUsers);
+    return NextResponse.json({ users: filteredUsers });
   } catch (error) {
     console.error('Error searching users:', error);
-    return NextResponse.json({ error: 'Failed to search users' }, { status: 500 });
+    console.error('Error details:', error);
+    return NextResponse.json({ 
+      error: 'Failed to search users', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
 }
