@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/database/firebase";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 
 export async function GET(request: Request) {
   try {
@@ -13,19 +13,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ users: [] });
     }
 
-    // Search by email in users collection
-    const usersQuery = query(
-      collection(db, 'users'),
-      where('email', '>=', searchTerm.toLowerCase()),
-      where('email', '<=', searchTerm.toLowerCase() + '\uf8ff'),
-      limit(10)
-    );
-
+    // Get all users and filter client-side to avoid index requirements
+    const usersRef = collection(db, 'users');
     console.log('Executing email query...');
-    const snapshot = await getDocs(usersQuery);
+    const snapshot = await getDocs(usersRef);
     console.log('Email query results:', snapshot.docs.length);
     
-    const users = snapshot.docs.map(doc => ({
+    const allUsers = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     })) as Array<{
@@ -36,8 +30,14 @@ export async function GET(request: Request) {
       photoURL?: string;
     }>;
 
-    console.log('Users found by email:', users);
-    return NextResponse.json({ users });
+    // Filter users by email (case-insensitive partial match)
+    const filteredUsers = allUsers.filter(user => 
+      user.email && 
+      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    ).slice(0, 10); // Limit to 10 results
+
+    console.log('Users found by email:', filteredUsers);
+    return NextResponse.json({ users: filteredUsers });
   } catch (error) {
     console.error('Error searching users by email:', error);
     console.error('Error details:', error);
