@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/database/firebase";
 import { collection, query, where, getDocs, addDoc } from "firebase/firestore";
+import { MATERIAL_SETS, MaterialSet } from "@/data/materialSets";
 
 interface Site {
   id: string;
@@ -44,6 +45,7 @@ export default function HomePage() {
   // Form states
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
+  const [selectedMaterialSet, setSelectedMaterialSet] = useState<string>('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -122,7 +124,7 @@ export default function HomePage() {
   };
 
   const handleCreate = async () => {
-    if (!name.trim() || !location.trim() || !user) {
+    if (!name.trim() || !location.trim() || !selectedMaterialSet || !user) {
       alert('Please fill in all required fields');
       return;
     }
@@ -162,6 +164,16 @@ export default function HomePage() {
         photoURL = uploadData.secure_url;
       }
       
+      // Get materials from selected material set
+      const materialSet = MATERIAL_SETS.find(set => set.id === selectedMaterialSet);
+      const materials = materialSet ? materialSet.materials.map(material => ({
+        id: `${Date.now()}-${Math.random()}`,
+        name: material.name,
+        unit: material.unit,
+        amount: 0, // Start with 0 amount
+        location: name.trim()
+      })) : [];
+
       // Create document in Firebase
       const newItemData = {
         name: name.trim(),
@@ -169,6 +181,7 @@ export default function HomePage() {
         photoURL,
         adminId: user.uid,
         members: [user.uid],
+        materials,
         createdAt: new Date(),
         lastActivity: 'Just created'
       };
@@ -189,6 +202,12 @@ export default function HomePage() {
         setStores(prev => [newItem, ...prev]);
       }
 
+      // Reset form
+      setName('');
+      setLocation('');
+      setSelectedMaterialSet('');
+      setPhotoFile(null);
+      setPhotoPreview(null);
       setShowAddOverlay(false);
     } catch (error) {
       console.error('Error creating item:', error);
@@ -460,6 +479,22 @@ export default function HomePage() {
                     placeholder="Enter location address"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Material Set *</label>
+                  <select
+                    value={selectedMaterialSet}
+                    onChange={(e) => setSelectedMaterialSet(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
+                  >
+                    <option value="">Select a material set</option>
+                    {MATERIAL_SETS.map((set) => (
+                      <option key={set.id} value={set.id} className="bg-gray-800">
+                        {set.name} - {set.description}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {/* Actions */}
@@ -473,7 +508,7 @@ export default function HomePage() {
                 </button>
                 <button
                   onClick={handleCreate}
-                  disabled={isCreating || !name.trim() || !location.trim()}
+                  disabled={isCreating || !name.trim() || !location.trim() || !selectedMaterialSet}
                   className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:shadow-blue-500/40 disabled:opacity-50 text-white rounded-xl font-medium transition-all duration-200 disabled:cursor-not-allowed shadow-lg shadow-blue-500/25"
                 >
                   {isCreating ? (

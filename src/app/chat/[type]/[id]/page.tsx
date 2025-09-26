@@ -4,9 +4,10 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/database/firebase";
-import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, updateDoc, arrayUnion, getDocs } from "firebase/firestore";
+import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, updateDoc, arrayUnion, getDocs, where } from "firebase/firestore";
 import Image from "next/image";
 import BackButton from "@/components/BackButton";
+import { Material } from "@/data/materialSets";
 
 interface Message {
   id: string;
@@ -27,13 +28,7 @@ interface Message {
   type: 'text' | 'image' | 'material';
 }
 
-interface Material {
-  id: string;
-  name: string;
-  amount: number;
-  unit: string;
-  location: string;
-}
+// Material interface is now imported from materialSets.ts
 
 interface GroupData {
   id: string;
@@ -65,9 +60,15 @@ export default function ChatPage() {
   const [newMessage, setNewMessage] = useState("");
   const [showMaterialModal, setShowMaterialModal] = useState(false);
   const [showAddMaterial, setShowAddMaterial] = useState(false);
+  const [showRemoveMaterial, setShowRemoveMaterial] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [materialAmount, setMaterialAmount] = useState("");
   const [sourceGroup, setSourceGroup] = useState("");
+  const [destinationGroup, setDestinationGroup] = useState("");
+  const [materialSearchTerm, setMaterialSearchTerm] = useState("");
+  const [showSourceSelection, setShowSourceSelection] = useState(false);
+  const [showDestinationSelection, setShowDestinationSelection] = useState(false);
+  const [userGroups, setUserGroups] = useState<Array<{id: string, name: string, type: 'site' | 'store'}>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
@@ -100,6 +101,41 @@ export default function ChatPage() {
 
     loadGroupData();
   }, [user, groupId, type]);
+
+  // Load user's groups for source/destination selection
+  useEffect(() => {
+    const loadUserGroups = async () => {
+      if (!user) return;
+      
+      try {
+        const sitesQuery = query(collection(db, 'sites'), where('members', 'array-contains', user.uid));
+        const storesQuery = query(collection(db, 'stores'), where('members', 'array-contains', user.uid));
+        
+        const [sitesSnapshot, storesSnapshot] = await Promise.all([
+          getDocs(sitesQuery),
+          getDocs(storesQuery)
+        ]);
+        
+        const sites = sitesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name,
+          type: 'site' as const
+        }));
+        
+        const stores = storesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name,
+          type: 'store' as const
+        }));
+        
+        setUserGroups([...sites, ...stores]);
+      } catch (error) {
+        console.error('Error loading user groups:', error);
+      }
+    };
+
+    loadUserGroups();
+  }, [user]);
 
   // Load messages
   useEffect(() => {
@@ -194,7 +230,7 @@ export default function ChatPage() {
 
     const amount = parseFloat(materialAmount);
     if (isNaN(amount) || amount <= 0) {
-      alert('Please enter a valid amount');
+      alert('Please enter a valid positive amount');
       return;
     }
 
@@ -264,7 +300,104 @@ export default function ChatPage() {
       setSourceGroup("");
     } catch (error) {
       console.error('Error adding material:', error);
-      alert('Failed to add material. Please try again.');
+      if (error instanceof Error) {
+        alert(`Failed to add material: ${error.message}`);
+      } else {
+        alert('Failed to add material. Please try again.');
+      }
+    }
+  };
+
+  const handleMaterialRemove = async () => {
+    if (!selectedMaterial || !materialAmount || !user || !groupData) return;
+
+    const amount = parseFloat(materialAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alert('Please enter a valid positive amount');
+      return;
+    }
+
+    // Check if we have enough material to remove
+    const currentAmount = selectedMaterial.amount;
+    if (amount > currentAmount) {
+      alert(`Insufficient material. Available: ${currentAmount} ${selectedMaterial.unit}`);
+      return;
+    }
+
+    try {
+      // Remove material from current group
+      const updatedMaterials = [...groupData.materials];
+      const materialIndex = updatedMaterials.findIndex(m => m.id === selectedMaterial.id);
+      
+      if (materialIndex !== -1) {
+        updatedMaterials[materialIndex].amount -= amount;
+        
+        // Remove material if amount becomes 0 or negative
+        if (updatedMaterials[materialIndex].amount <= 0) {
+          updatedMaterials.splice(materialIndex, 1);
+        }
+      }
+
+      // Update group materials
+      await updateDoc(doc(db, type === 'sites' ? 'sites' : 'stores', groupId), {
+        materials: updatedMaterials
+      });
+
+      // Add to destination if specified
+      if (destinationGroup && destinationGroup !== 'none') {
+        const [destType, destId] = destinationGroup.split('_');
+        const destDoc = await getDoc(doc(db, destType, destId));
+        if (destDoc.exists()) {
+          const destData = destDoc.data();
+          const destMaterials = destData.materials || [];
+          const destMaterial = destMaterials.find((m: Material) => m.name === selectedMaterial.name && m.unit === selectedMaterial.unit);
+          
+          if (destMaterial) {
+            destMaterial.amount += amount;
+          } else {
+            destMaterials.push({
+              id: `${Date.now()}-${Math.random()}`,
+              name: selectedMaterial.name,
+              amount,
+              unit: selectedMaterial.unit,
+              location: destData.name
+            });
+          }
+          
+          await updateDoc(doc(db, destType, destId), {
+            materials: destMaterials
+          });
+        }
+      }
+
+      // Add message about material transfer
+      await addDoc(collection(db, type === 'sites' ? 'sites' : 'stores', groupId, 'messages'), {
+        materialData: {
+          name: selectedMaterial.name,
+          amount: -amount, // Negative amount for removal
+          unit: selectedMaterial.unit,
+          source: destinationGroup !== 'none' ? destinationGroup : undefined,
+          sourceType: destinationGroup !== 'none' ? (destinationGroup.split('_')[0] as 'site' | 'store') : undefined,
+          sourceId: destinationGroup !== 'none' ? destinationGroup.split('_')[1] : undefined
+        },
+        timestamp: new Date(),
+        userId: user.uid,
+        userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
+        userPhotoURL: user.photoURL,
+        type: 'material'
+      });
+
+      setShowRemoveMaterial(false);
+      setSelectedMaterial(null);
+      setMaterialAmount("");
+      setDestinationGroup("");
+    } catch (error) {
+      console.error('Error removing material:', error);
+      if (error instanceof Error) {
+        alert(`Failed to remove material: ${error.message}`);
+      } else {
+        alert('Failed to remove material. Please try again.');
+      }
     }
   };
 
@@ -478,13 +611,19 @@ export default function ChatPage() {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
                       </svg>
-                      <span className="text-sm font-medium">Material Added</span>
+                      <span className="text-sm font-medium">
+                        {message.materialData.amount < 0 ? 'Material Removed' : 'Material Added'}
+                      </span>
                     </div>
                     <div className="text-sm">
                       <p><strong>{message.materialData.name}</strong></p>
-                      <p>{message.materialData.amount} {message.materialData.unit}</p>
+                      <p className={message.materialData.amount < 0 ? 'text-red-300' : 'text-green-300'}>
+                        {message.materialData.amount < 0 ? '-' : '+'}{Math.abs(message.materialData.amount)} {message.materialData.unit}
+                      </p>
                       {message.materialData.source && (
-                        <p className="text-xs opacity-75">From: {message.materialData.source}</p>
+                        <p className="text-xs opacity-75">
+                          {message.materialData.amount < 0 ? 'To' : 'From'}: {message.materialData.source}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -558,40 +697,67 @@ export default function ChatPage() {
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-6">
           <div className="bg-gray-800/90 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 max-w-md w-full shadow-2xl shadow-black/50">
             <div className="text-center mb-6">
-              <h3 className="text-xl font-semibold text-white mb-2">Add Material</h3>
-              <p className="text-gray-400 text-sm">Select a material to add to this {type}</p>
+              <h3 className="text-xl font-semibold text-white mb-2">Manage Materials</h3>
+              <p className="text-gray-400 text-sm">Search and manage materials in this {type}</p>
             </div>
 
-            <div className="space-y-3 max-h-64 overflow-y-auto">
-              {groupData.materials.map((material) => (
-                <button
-                  key={material.id}
-                  onClick={() => {
-                    setSelectedMaterial(material);
-                    setShowMaterialModal(false);
-                    setShowAddMaterial(true);
-                  }}
-                  className="w-full p-3 bg-gray-700/50 rounded-xl text-left hover:bg-gray-600/50 transition-colors duration-200"
-                >
-                  <div className="flex justify-between items-center">
+            {/* Search Bar */}
+            <div className="mb-4">
+              <input
+                type="text"
+                value={materialSearchTerm}
+                onChange={(e) => setMaterialSearchTerm(e.target.value)}
+                placeholder="Search materials..."
+                className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
+              />
+            </div>
+
+            {/* Material List */}
+            <div className="space-y-3 max-h-64 overflow-y-auto mb-6">
+              {groupData.materials
+                .filter(material => 
+                  material.name.toLowerCase().includes(materialSearchTerm.toLowerCase())
+                )
+                .map((material) => (
+                <div key={material.id} className="p-3 bg-gray-700/50 rounded-xl">
+                  <div className="flex justify-between items-center mb-2">
                     <div>
                       <p className="text-white font-medium">{material.name}</p>
-                      <p className="text-gray-400 text-sm">{material.amount} {material.unit}</p>
+                      <p className="text-gray-400 text-sm">Current: {material.amount} {material.unit}</p>
                     </div>
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                    </svg>
                   </div>
-                </button>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => {
+                        setSelectedMaterial(material);
+                        setShowMaterialModal(false);
+                        setShowAddMaterial(true);
+                      }}
+                      className="flex-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors duration-200"
+                    >
+                      Add
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedMaterial(material);
+                        setShowMaterialModal(false);
+                        setShowRemoveMaterial(true);
+                      }}
+                      className="flex-1 px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors duration-200"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
 
-            <div className="flex space-x-3 mt-6">
+            <div className="flex space-x-3">
               <button
                 onClick={() => setShowMaterialModal(false)}
                 className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors duration-200"
               >
-                Cancel
+                Close
               </button>
             </div>
           </div>
@@ -627,7 +793,13 @@ export default function ChatPage() {
                   className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
                 >
                   <option value="none">No source (new material)</option>
-                  {/* TODO: Add options for other groups user is member of */}
+                  {userGroups
+                    .filter(group => group.id !== groupId)
+                    .map((group) => (
+                      <option key={`${group.type}_${group.id}`} value={`${group.type}_${group.id}`}>
+                        {group.name} ({group.type})
+                      </option>
+                    ))}
                 </select>
               </div>
             </div>
@@ -649,6 +821,69 @@ export default function ChatPage() {
                 className="flex-1 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-medium transition-colors duration-200"
               >
                 Add Material
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Material Modal */}
+      {showRemoveMaterial && selectedMaterial && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-6">
+          <div className="bg-gray-800/90 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 max-w-md w-full shadow-2xl shadow-black/50">
+            <div className="text-center mb-6">
+              <h3 className="text-xl font-semibold text-white mb-2">Remove {selectedMaterial.name}</h3>
+              <p className="text-gray-400 text-sm">Specify amount and destination</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Amount</label>
+                <input
+                  type="number"
+                  value={materialAmount}
+                  onChange={(e) => setMaterialAmount(e.target.value)}
+                  placeholder="Enter amount"
+                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Destination (Optional)</label>
+                <select
+                  value={destinationGroup}
+                  onChange={(e) => setDestinationGroup(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
+                >
+                  <option value="none">No destination (remove material)</option>
+                  {userGroups
+                    .filter(group => group.id !== groupId)
+                    .map((group) => (
+                      <option key={`${group.type}_${group.id}`} value={`${group.type}_${group.id}`}>
+                        {group.name} ({group.type})
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowRemoveMaterial(false);
+                  setSelectedMaterial(null);
+                  setMaterialAmount("");
+                  setDestinationGroup("");
+                }}
+                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleMaterialRemove}
+                className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors duration-200"
+              >
+                Remove Material
               </button>
             </div>
           </div>
