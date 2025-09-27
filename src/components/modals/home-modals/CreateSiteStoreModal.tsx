@@ -15,7 +15,6 @@ interface CreateSiteStoreModalProps {
   onCategoryChange: (category: string) => void;
   selectedCompanies: string[];
   onCompaniesChange: (companies: string[]) => void;
-  photoFile: File | null;
   onPhotoChange: (file: File | null) => void;
   photoPreview: string | null;
   onPhotoSelect: () => void;
@@ -36,7 +35,6 @@ export default function CreateSiteStoreModal({
   onCategoryChange,
   selectedCompanies,
   onCompaniesChange,
-  photoFile,
   onPhotoChange,
   photoPreview,
   onPhotoSelect,

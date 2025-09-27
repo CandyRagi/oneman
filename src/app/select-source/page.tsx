@@ -22,14 +22,14 @@ export default function SelectSourcePage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   
-  const type = searchParams.get('type') as 'source' | 'destination';
-  const currentGroupId = searchParams.get('currentGroupId');
-  const currentGroupType = searchParams.get('currentGroupType') as 'site' | 'store';
-  
   const [searchTerm, setSearchTerm] = useState("");
   const [sites, setSites] = useState<GroupItem[]>([]);
   const [stores, setStores] = useState<GroupItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Get search params
+  const type = searchParams?.get('type') as 'source' | 'destination';
+  const currentGroupId = searchParams?.get('currentGroupId');
 
   // Load user's groups
   useEffect(() => {
@@ -69,6 +69,15 @@ export default function SelectSourcePage() {
 
     loadUserGroups();
   }, [user, currentGroupId]);
+
+  // Check if searchParams are available
+  if (!searchParams) {
+    return (
+      <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   const handleSelect = (item: GroupItem) => {
     // Return the selected item to the previous page

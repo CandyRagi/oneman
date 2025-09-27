@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/database/firebase";
 import { collection, query, where, getDocs, addDoc } from "firebase/firestore";
-import { MATERIAL_SETS, MaterialSet, CATEGORIES } from "@/data/materialSets";
+import { MATERIAL_SETS } from "@/data/materialSets";
 import CreateSiteStoreModal from "@/components/modals/home-modals/CreateSiteStoreModal";
 
 interface Site {
@@ -177,7 +177,14 @@ export default function HomePage() {
       }
       
       // Get materials from selected companies
-      let materials: any[] = [];
+      let materials: Array<{
+        id: string;
+        name: string;
+        unit: string;
+        amount: number;
+        location: string;
+        company: string;
+      }> = [];
       selectedCompanies.forEach(companyId => {
         const companySet = MATERIAL_SETS.find(set => set.id === companyId);
         if (companySet) {
@@ -194,7 +201,25 @@ export default function HomePage() {
       });
 
       // Create document in Firebase
-      const newItemData: any = {
+      const newItemData: {
+        name: string;
+        location: string;
+        photoURL: string | null;
+        adminId: string;
+        members: string[];
+        materials: Array<{
+          id: string;
+          name: string;
+          unit: string;
+          amount: number;
+          location: string;
+          company: string;
+        }>;
+        selectedCategory: string;
+        selectedCompanies: string[];
+        createdAt: Date;
+        lastActivity: string;
+      } = {
         name: name.trim(),
         location: location.trim(),
         photoURL,
@@ -426,7 +451,6 @@ export default function HomePage() {
           onCategoryChange={setSelectedCategory}
           selectedCompanies={selectedCompanies}
           onCompaniesChange={setSelectedCompanies}
-          photoFile={photoFile}
           onPhotoChange={handlePhotoChange}
           photoPreview={photoPreview}
           onPhotoSelect={handlePhotoSelect}

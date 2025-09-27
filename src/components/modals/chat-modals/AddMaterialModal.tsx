@@ -10,7 +10,6 @@ interface AddMaterialModalProps {
   onAmountChange: (amount: string) => void;
   sourceGroup: string;
   onSourceChange: (source: string) => void;
-  userGroups: Array<{id: string, name: string, type: 'site' | 'store'}>;
   onAdd: () => void;
   onSelectSource: () => void;
 }
@@ -23,7 +22,6 @@ export default function AddMaterialModal({
   onAmountChange,
   sourceGroup,
   onSourceChange,
-  userGroups,
   onAdd,
   onSelectSource
 }: AddMaterialModalProps) {

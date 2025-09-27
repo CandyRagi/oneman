@@ -14,7 +14,6 @@ interface GroupSettingsModalProps {
   onNameChange: (name: string) => void;
   editLocation: string;
   onLocationChange: (location: string) => void;
-  editPhotoFile: File | null;
   onPhotoChange: (file: File | null) => void;
   editPhotoPreview: string | null;
   onUpdateGroup: () => void;
@@ -29,7 +28,6 @@ export default function GroupSettingsModal({
   onNameChange,
   editLocation,
   onLocationChange,
-  editPhotoFile,
   onPhotoChange,
   editPhotoPreview,
   onUpdateGroup,

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/database/firebase";
-import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, updateDoc, arrayUnion, getDocs, where, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, updateDoc, arrayUnion, getDocs, deleteDoc } from "firebase/firestore";
 import Image from "next/image";
 import BackButton from "@/components/BackButton";
 import { Material } from "@/data/materialSets";
@@ -76,9 +76,6 @@ export default function ChatPage() {
   const [sourceGroup, setSourceGroup] = useState("");
   const [destinationGroup, setDestinationGroup] = useState("");
   const [materialSearchTerm, setMaterialSearchTerm] = useState("");
-  const [showSourceSelection, setShowSourceSelection] = useState(false);
-  const [showDestinationSelection, setShowDestinationSelection] = useState(false);
-  const [userGroups, setUserGroups] = useState<Array<{id: string, name: string, type: 'site' | 'store'}>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
@@ -87,7 +84,6 @@ export default function ChatPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [showMessageMenu, setShowMessageMenu] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
-  const [messageMenuPosition, setMessageMenuPosition] = useState({ x: 0, y: 0 });
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [selectedUser, setSelectedUser] = useState<SearchUser | null>(null);
   const [showGroupSettings, setShowGroupSettings] = useState(false);
@@ -106,7 +102,6 @@ export default function ChatPage() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const editFileInputRef = useRef<HTMLInputElement>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Load group data
@@ -144,40 +139,6 @@ export default function ChatPage() {
     loadGroupData();
   }, [user, groupId, type]);
 
-  // Load user's groups for source/destination selection
-  useEffect(() => {
-    const loadUserGroups = async () => {
-      if (!user) return;
-      
-      try {
-        const sitesQuery = query(collection(db, 'sites'), where('members', 'array-contains', user.uid));
-        const storesQuery = query(collection(db, 'stores'), where('members', 'array-contains', user.uid));
-        
-        const [sitesSnapshot, storesSnapshot] = await Promise.all([
-          getDocs(sitesQuery),
-          getDocs(storesQuery)
-        ]);
-        
-        const sites = sitesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          name: doc.data().name,
-          type: 'site' as const
-        }));
-        
-        const stores = storesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          name: doc.data().name,
-          type: 'store' as const
-        }));
-        
-        setUserGroups([...sites, ...stores]);
-      } catch (error) {
-        console.error('Error loading user groups:', error);
-      }
-    };
-
-    loadUserGroups();
-  }, [user]);
 
   // Load messages
   useEffect(() => {
@@ -511,14 +472,13 @@ export default function ChatPage() {
   const isAdmin = user?.uid === groupData?.adminId;
 
   // Long press handlers
-  const handleMessageMouseDown = (message: Message, event: React.MouseEvent) => {
+  const handleMessageMouseDown = (message: Message) => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
     }
     
     longPressTimer.current = setTimeout(() => {
       setSelectedMessage(message);
-      setMessageMenuPosition({ x: event.clientX, y: event.clientY });
       setShowMessageMenu(true);
     }, 500); // 500ms long press
   };
@@ -538,15 +498,12 @@ export default function ChatPage() {
   };
 
   // Touch handlers for mobile
-  const handleMessageTouchStart = (message: Message, event: React.TouchEvent) => {
+  const handleMessageTouchStart = (message: Message) => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
     }
-    
-    const touch = event.touches[0];
     longPressTimer.current = setTimeout(() => {
       setSelectedMessage(message);
-      setMessageMenuPosition({ x: touch.clientX, y: touch.clientY });
       setShowMessageMenu(true);
     }, 500); // 500ms long press
   };
@@ -595,7 +552,7 @@ export default function ChatPage() {
           userData.displayName = userInfo.displayName || userData.displayName;
           userData.photoURL = userInfo.photoURL || userData.photoURL;
         }
-      } catch (error) {
+      } catch {
         console.log('Could not fetch detailed user info, using message data');
       }
 
@@ -850,7 +807,7 @@ export default function ChatPage() {
           ) : (
             <>
               <h2 className="text-xl font-semibold text-white mb-2">Group not found</h2>
-              <p className="text-gray-400 text-sm mb-4">You may not have access to this group or it doesn't exist.</p>
+              <p className="text-gray-400 text-sm mb-4">You may not have access to this group or it doesn&apos;t exist.</p>
               <button
                 onClick={() => router.push('/')}
                 className="px-6 py-3 bg-blue-500 text-white rounded-xl"
@@ -943,10 +900,10 @@ export default function ChatPage() {
                     ? 'bg-blue-500 text-white' 
                     : 'bg-gray-800/50 text-white'
                 }`}
-                onMouseDown={(e) => handleMessageMouseDown(message, e)}
+                onMouseDown={() => handleMessageMouseDown(message)}
                 onMouseUp={handleMessageMouseUp}
                 onMouseLeave={handleMessageMouseLeave}
-                onTouchStart={(e) => handleMessageTouchStart(message, e)}
+                onTouchStart={() => handleMessageTouchStart(message)}
                 onTouchEnd={handleMessageTouchEnd}
               >
                 {message.type === 'text' && (
@@ -1085,7 +1042,6 @@ export default function ChatPage() {
         onAmountChange={setMaterialAmount}
         sourceGroup={sourceGroup}
         onSourceChange={setSourceGroup}
-        userGroups={userGroups}
         onAdd={handleMaterialAdd}
         onSelectSource={() => {
           const params = new URLSearchParams();
@@ -1110,7 +1066,6 @@ export default function ChatPage() {
         onAmountChange={setMaterialAmount}
         destinationGroup={destinationGroup}
         onDestinationChange={setDestinationGroup}
-        userGroups={userGroups}
         onRemove={handleMaterialRemove}
         onSelectDestination={() => {
           const params = new URLSearchParams();
@@ -1207,7 +1162,6 @@ export default function ChatPage() {
         onNameChange={setEditName}
         editLocation={editLocation}
         onLocationChange={setEditLocation}
-        editPhotoFile={editPhotoFile}
         onPhotoChange={setEditPhotoFile}
         editPhotoPreview={editPhotoPreview}
         onUpdateGroup={handleUpdateGroup}

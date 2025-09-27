@@ -10,7 +10,6 @@ interface RemoveMaterialModalProps {
   onAmountChange: (amount: string) => void;
   destinationGroup: string;
   onDestinationChange: (destination: string) => void;
-  userGroups: Array<{id: string, name: string, type: 'site' | 'store'}>;
   onRemove: () => void;
   onSelectDestination: () => void;
 }
@@ -23,7 +22,6 @@ export default function RemoveMaterialModal({
   onAmountChange,
   destinationGroup,
   onDestinationChange,
-  userGroups,
   onRemove,
   onSelectDestination
 }: RemoveMaterialModalProps) {
