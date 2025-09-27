@@ -8,6 +8,16 @@ import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, updateDoc,
 import Image from "next/image";
 import BackButton from "@/components/BackButton";
 import { Material } from "@/data/materialSets";
+import MaterialSelectionModal from "@/components/modals/chat-modals/MaterialSelectionModal";
+import AddMaterialModal from "@/components/modals/chat-modals/AddMaterialModal";
+import RemoveMaterialModal from "@/components/modals/chat-modals/RemoveMaterialModal";
+import MessageMenuModal from "@/components/modals/chat-modals/MessageMenuModal";
+import UserProfileModal from "@/components/modals/chat-modals/UserProfileModal";
+import AdminMenuModal from "@/components/modals/chat-modals/AdminMenuModal";
+import AddMemberModal from "@/components/modals/chat-modals/AddMemberModal";
+import GroupSettingsModal from "@/components/modals/chat-modals/GroupSettingsModal";
+import RemoveUserModal from "@/components/modals/chat-modals/RemoveUserModal";
+import ViewMembersModal from "@/components/modals/chat-modals/ViewMembersModal";
 
 interface Message {
   id: string;
@@ -1042,418 +1052,116 @@ export default function ChatPage() {
       </div>
 
       {/* Material Selection Modal */}
-      {showMaterialModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-6">
-          <div className="bg-gray-800/90 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 max-w-md w-full shadow-2xl shadow-black/50">
-            <div className="text-center mb-6">
-              <h3 className="text-xl font-semibold text-white mb-2">Manage Materials</h3>
-              <p className="text-gray-400 text-sm">Search and manage materials in this {type}</p>
-            </div>
-
-            {/* Search Bar */}
-            <div className="mb-4">
-              <input
-                type="text"
-                value={materialSearchTerm}
-                onChange={(e) => setMaterialSearchTerm(e.target.value)}
-                placeholder="Search materials..."
-                className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
-              />
-            </div>
-
-            {/* Material List */}
-            <div className="space-y-3 max-h-64 overflow-y-auto mb-6">
-              {groupData.materials
-                .filter(material => 
-                  material.name.toLowerCase().includes(materialSearchTerm.toLowerCase())
-                )
-                .map((material) => (
-                <div key={material.id} className="p-3 bg-gray-700/50 rounded-xl">
-                  <div className="flex justify-between items-center mb-2">
-                    <div>
-                      <p className="text-white font-medium">{material.name}</p>
-                      <p className="text-gray-400 text-sm">Current: {material.amount} {material.unit}</p>
-                    </div>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => {
-                        setSelectedMaterial(material);
-                        setShowMaterialModal(false);
-                        setShowAddMaterial(true);
-                      }}
-                      className="flex-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors duration-200"
-                    >
-                      Add
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedMaterial(material);
-                        setShowMaterialModal(false);
-                        setShowRemoveMaterial(true);
-                      }}
-                      className="flex-1 px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors duration-200"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowMaterialModal(false)}
-                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors duration-200"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <MaterialSelectionModal
+        isOpen={showMaterialModal}
+        onClose={() => setShowMaterialModal(false)}
+        groupData={groupData}
+        onMaterialSelect={setSelectedMaterial}
+        onAddMaterial={(material) => {
+          setSelectedMaterial(material);
+          setShowMaterialModal(false);
+          setShowAddMaterial(true);
+        }}
+        onRemoveMaterial={(material) => {
+          setSelectedMaterial(material);
+          setShowMaterialModal(false);
+          setShowRemoveMaterial(true);
+        }}
+        searchTerm={materialSearchTerm}
+        onSearchChange={setMaterialSearchTerm}
+      />
 
       {/* Add Material Modal */}
-      {showAddMaterial && selectedMaterial && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-6">
-          <div className="bg-gray-800/90 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 max-w-md w-full shadow-2xl shadow-black/50">
-            <div className="text-center mb-6">
-              <h3 className="text-xl font-semibold text-white mb-2">Add {selectedMaterial.name}</h3>
-              <p className="text-gray-400 text-sm">Specify amount and source</p>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Amount</label>
-                <input
-                  type="number"
-                  value={materialAmount}
-                  onChange={(e) => setMaterialAmount(e.target.value)}
-                  placeholder="Enter amount"
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Source (Optional)</label>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => {
-                      if (sourceGroup === 'none') {
-                        setSourceGroup('');
-                      } else {
-                        setSourceGroup('none');
-                      }
-                    }}
-                    className={`w-full px-4 py-3 rounded-xl text-left transition-all duration-200 ${
-                      sourceGroup === 'none' 
-                        ? 'bg-blue-500/20 border border-blue-500/30 text-blue-300' 
-                        : 'bg-gray-700/50 border border-gray-600/50 text-white hover:bg-gray-600/50'
-                    }`}
-                  >
-                    No source (new material)
-                  </button>
-                  <button
-                    onClick={() => {
-                      // Navigate to source selection page
-                      const params = new URLSearchParams();
-                      params.set('type', 'source');
-                      params.set('currentGroupId', groupId);
-                      params.set('currentGroupType', type);
-                      router.push(`/select-source?${params.toString()}`);
-                    }}
-                    className={`w-full px-4 py-3 rounded-xl text-left transition-all duration-200 ${
-                      sourceGroup && sourceGroup !== 'none'
-                        ? 'bg-blue-500/20 border border-blue-500/30 text-blue-300' 
-                        : 'bg-gray-700/50 border border-gray-600/50 text-white hover:bg-gray-600/50'
-                    }`}
-                  >
-                    {sourceGroup && sourceGroup !== 'none' ? `Selected: ${sourceGroup}` : 'Select source...'}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex space-x-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowAddMaterial(false);
-                  setSelectedMaterial(null);
-                  setMaterialAmount("");
-                  setSourceGroup("");
-                }}
-                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors duration-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleMaterialAdd}
-                className="flex-1 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-medium transition-colors duration-200"
-              >
-                Add Material
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AddMaterialModal
+        isOpen={showAddMaterial}
+        onClose={() => {
+          setShowAddMaterial(false);
+          setSelectedMaterial(null);
+          setMaterialAmount("");
+          setSourceGroup("");
+        }}
+        selectedMaterial={selectedMaterial}
+        materialAmount={materialAmount}
+        onAmountChange={setMaterialAmount}
+        sourceGroup={sourceGroup}
+        onSourceChange={setSourceGroup}
+        userGroups={userGroups}
+        onAdd={handleMaterialAdd}
+        onSelectSource={() => {
+          const params = new URLSearchParams();
+          params.set('type', 'source');
+          params.set('currentGroupId', groupId);
+          params.set('currentGroupType', type);
+          router.push(`/select-source?${params.toString()}`);
+        }}
+      />
 
       {/* Remove Material Modal */}
-      {showRemoveMaterial && selectedMaterial && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-6">
-          <div className="bg-gray-800/90 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 max-w-md w-full shadow-2xl shadow-black/50">
-            <div className="text-center mb-6">
-              <h3 className="text-xl font-semibold text-white mb-2">Remove {selectedMaterial.name}</h3>
-              <p className="text-gray-400 text-sm">Specify amount and destination</p>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Amount</label>
-                <input
-                  type="number"
-                  value={materialAmount}
-                  onChange={(e) => setMaterialAmount(e.target.value)}
-                  placeholder="Enter amount"
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Destination (Optional)</label>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => {
-                      if (destinationGroup === 'none') {
-                        setDestinationGroup('');
-                      } else {
-                        setDestinationGroup('none');
-                      }
-                    }}
-                    className={`w-full px-4 py-3 rounded-xl text-left transition-all duration-200 ${
-                      destinationGroup === 'none' 
-                        ? 'bg-red-500/20 border border-red-500/30 text-red-300' 
-                        : 'bg-gray-700/50 border border-gray-600/50 text-white hover:bg-gray-600/50'
-                    }`}
-                  >
-                    No destination (remove material)
-                  </button>
-                  <button
-                    onClick={() => {
-                      // Navigate to destination selection page
-                      const params = new URLSearchParams();
-                      params.set('type', 'destination');
-                      params.set('currentGroupId', groupId);
-                      params.set('currentGroupType', type);
-                      router.push(`/select-source?${params.toString()}`);
-                    }}
-                    className={`w-full px-4 py-3 rounded-xl text-left transition-all duration-200 ${
-                      destinationGroup && destinationGroup !== 'none'
-                        ? 'bg-green-500/20 border border-green-500/30 text-green-300' 
-                        : 'bg-gray-700/50 border border-gray-600/50 text-white hover:bg-gray-600/50'
-                    }`}
-                  >
-                    {destinationGroup && destinationGroup !== 'none' ? `Selected: ${destinationGroup}` : 'Select destination...'}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex space-x-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowRemoveMaterial(false);
-                  setSelectedMaterial(null);
-                  setMaterialAmount("");
-                  setDestinationGroup("");
-                }}
-                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors duration-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleMaterialRemove}
-                className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors duration-200"
-              >
-                Remove Material
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RemoveMaterialModal
+        isOpen={showRemoveMaterial}
+        onClose={() => {
+          setShowRemoveMaterial(false);
+          setSelectedMaterial(null);
+          setMaterialAmount("");
+          setDestinationGroup("");
+        }}
+        selectedMaterial={selectedMaterial}
+        materialAmount={materialAmount}
+        onAmountChange={setMaterialAmount}
+        destinationGroup={destinationGroup}
+        onDestinationChange={setDestinationGroup}
+        userGroups={userGroups}
+        onRemove={handleMaterialRemove}
+        onSelectDestination={() => {
+          const params = new URLSearchParams();
+          params.set('type', 'destination');
+          params.set('currentGroupId', groupId);
+          params.set('currentGroupType', type);
+          router.push(`/select-source?${params.toString()}`);
+        }}
+      />
 
       {/* Admin Menu Modal */}
-      {showAdminMenu && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-6">
-          <div className="bg-gray-800/90 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 max-w-md w-full shadow-2xl shadow-black/50">
-            <div className="text-center mb-6">
-              <h3 className="text-xl font-semibold text-white mb-2">Group Management</h3>
-              <p className="text-gray-400 text-sm">Manage {type} members and settings</p>
-            </div>
+      <AdminMenuModal
+        isOpen={showAdminMenu}
+        onClose={() => setShowAdminMenu(false)}
+        type={type as 'site' | 'store'}
+        onAddMember={() => {
+          setShowAdminMenu(false);
+          setShowAddMember(true);
+        }}
+        onGroupSettings={() => {
+          setShowAdminMenu(false);
+          setEditName(groupData?.name || '');
+          setEditLocation(groupData?.location || '');
+          setEditPhotoPreview(groupData?.photoURL || null);
+          setShowGroupSettings(true);
+        }}
+        onRemoveUser={() => {
+          setShowAdminMenu(false);
+          loadGroupMembers();
+          setShowRemoveUser(true);
+        }}
+      />
 
-            <div className="space-y-3">
-              <button
-                onClick={() => {
-                  setShowAdminMenu(false);
-                  setShowAddMember(true);
-                }}
-                className="w-full p-4 bg-blue-500/20 border border-blue-500/30 rounded-xl text-left hover:bg-blue-500/30 transition-colors duration-200"
-              >
-                <div className="flex items-center space-x-3">
-                  <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                  </svg>
-                  <div>
-                    <p className="text-white font-medium">Add Member</p>
-                    <p className="text-gray-400 text-sm">Invite someone to join this {type}</p>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => {
-                  setShowAdminMenu(false);
-                  setEditName(groupData?.name || '');
-                  setEditLocation(groupData?.location || '');
-                  setEditPhotoPreview(groupData?.photoURL || null);
-                  setShowGroupSettings(true);
-                }}
-                className="w-full p-4 bg-gray-700/50 rounded-xl text-left hover:bg-gray-600/50 transition-colors duration-200"
-              >
-                <div className="flex items-center space-x-3">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a6.759 6.759 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                  </svg>
-                  <div>
-                    <p className="text-white font-medium">Group Settings</p>
-                    <p className="text-gray-400 text-sm">Change name, location, and photo</p>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => {
-                  setShowAdminMenu(false);
-                  loadGroupMembers();
-                  setShowRemoveUser(true);
-                }}
-                className="w-full p-4 bg-red-500/20 border border-red-500/30 rounded-xl text-left hover:bg-red-500/30 transition-colors duration-200"
-              >
-                <div className="flex items-center space-x-3">
-                  <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M22 10.5h-6m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
-                  </svg>
-                  <div>
-                    <p className="text-white font-medium">Remove User</p>
-                    <p className="text-gray-400 text-sm">Remove members from the group</p>
-                  </div>
-                </div>
-              </button>
-            </div>
-
-            <div className="flex space-x-3 mt-6">
-              <button
-                onClick={() => setShowAdminMenu(false)}
-                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors duration-200"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Member Modal - Mobile Optimized */}
-      {showAddMember && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-6">
-          <div className="bg-gray-800/90 backdrop-blur-xl border border-gray-700/50 rounded-t-3xl sm:rounded-3xl p-6 w-full sm:max-w-md shadow-2xl shadow-black/50 max-h-[80vh] sm:max-h-none">
-            <div className="text-center mb-6">
-              <h3 className="text-lg font-semibold text-white mb-2">Add Member</h3>
-              <p className="text-gray-400 text-sm">Search for users by email to add to this {type}</p>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Search by email</label>
-                <input
-                  type="email"
-                  value={newMemberEmail}
-                  onChange={(e) => {
-                    setNewMemberEmail(e.target.value);
-                    searchUsers(e.target.value);
-                  }}
-                  placeholder="Type email to search..."
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
-                />
-                {isSearching && (
-                  <div className="flex items-center justify-center mt-2">
-                    <div className="w-4 h-4 border-2 border-gray-600 border-t-blue-500 rounded-full animate-spin"></div>
-                    <span className="text-gray-400 text-sm ml-2">Searching...</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Search Results */}
-              {searchResults.length > 0 && (
-                <div className="max-h-48 overflow-y-auto space-y-2">
-                  {searchResults.map((user) => (
-                    <button
-                      key={user.id}
-                      onClick={() => handleAddMember(user.id, user.email)}
-                      className="w-full p-3 bg-gray-700/50 rounded-xl text-left hover:bg-gray-600/50 transition-colors duration-200"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center">
-                          {user.photoURL ? (
-                            <Image
-                              unoptimized
-                              src={user.photoURL}
-                              alt={user.displayName || user.email}
-                              width={32}
-                              height={32}
-                              className="w-full h-full rounded-full object-cover"
-                            />
-                          ) : (
-                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-                            </svg>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-white font-medium truncate">{user.email}</p>
-                          <p className="text-gray-400 text-sm truncate">{user.displayName || user.username}</p>
-                        </div>
-                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                        </svg>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {newMemberEmail.length >= 2 && searchResults.length === 0 && !isSearching && (
-                <div className="text-center py-4">
-                  <p className="text-gray-400 text-sm">No users found</p>
-                </div>
-              )}
-            </div>
-
-            <div className="flex space-x-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowAddMember(false);
-                  setNewMemberEmail("");
-                  setSearchResults([]);
-                }}
-                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors duration-200"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Add Member Modal */}
+      <AddMemberModal
+        isOpen={showAddMember}
+        onClose={() => {
+          setShowAddMember(false);
+          setNewMemberEmail("");
+          setSearchResults([]);
+        }}
+        type={type as 'site' | 'store'}
+        newMemberEmail={newMemberEmail}
+        onEmailChange={(email) => {
+          setNewMemberEmail(email);
+          searchUsers(email);
+        }}
+        searchResults={searchResults}
+        isSearching={isSearching}
+        onAddMember={handleAddMember}
+      />
 
       {/* Message Menu Modal */}
       {showMessageMenu && selectedMessage && (
