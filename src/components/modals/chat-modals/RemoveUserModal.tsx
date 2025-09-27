@@ -15,7 +15,7 @@ interface RemoveUserModalProps {
   groupMembers: GroupMember[];
   memberSearchTerm: string;
   onSearchChange: (term: string) => void;
-  onRemoveUser: (memberId: string) => void;
+  onRemoveUser: (memberId: string, memberName: string) => Promise<void>;
   isLoadingMembers: boolean;
 }
 
@@ -87,7 +87,7 @@ export default function RemoveUserModal({
                       <p className="text-gray-400 text-sm truncate">{member.email}</p>
                     </div>
                     <button
-                      onClick={() => onRemoveUser(member.id)}
+                      onClick={() => onRemoveUser(member.id, member.displayName || member.email || 'User')}
                       className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors duration-200"
                     >
                       Remove
