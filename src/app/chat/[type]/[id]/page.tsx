@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/database/firebase";
-import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, updateDoc, arrayUnion, getDocs, where } from "firebase/firestore";
+import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, updateDoc, arrayUnion, getDocs, where, deleteDoc } from "firebase/firestore";
 import Image from "next/image";
 import BackButton from "@/components/BackButton";
 import { Material } from "@/data/materialSets";
@@ -75,9 +75,29 @@ export default function ChatPage() {
   const [newMemberEmail, setNewMemberEmail] = useState("");
   const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [showMessageMenu, setShowMessageMenu] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [messageMenuPosition, setMessageMenuPosition] = useState({ x: 0, y: 0 });
+  const [showUserProfile, setShowUserProfile] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<SearchUser | null>(null);
+  const [showGroupSettings, setShowGroupSettings] = useState(false);
+  const [showRemoveUser, setShowRemoveUser] = useState(false);
+  const [showViewMembers, setShowViewMembers] = useState(false);
+  const [groupMembers, setGroupMembers] = useState<SearchUser[]>([]);
+  const [memberSearchTerm, setMemberSearchTerm] = useState("");
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+  
+  // Group settings form states
+  const [editName, setEditName] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [editPhotoFile, setEditPhotoFile] = useState<File | null>(null);
+  const [editPhotoPreview, setEditPhotoPreview] = useState<string | null>(null);
+  const [isUpdatingGroup, setIsUpdatingGroup] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Load group data
   useEffect(() => {
@@ -88,14 +108,26 @@ export default function ChatPage() {
         const groupDoc = await getDoc(doc(db, type === 'sites' ? 'sites' : 'stores', groupId));
         if (groupDoc.exists()) {
           const data = groupDoc.data();
+          
+          // Check if user is a member of the group
+          if (!data.members || !data.members.includes(user.uid)) {
+            console.error('User is not a member of this group');
+            setGroupData(null);
+            return;
+          }
+          
           setGroupData({
             id: groupDoc.id,
             ...data,
             materials: data.materials || []
           } as GroupData);
+        } else {
+          console.error('Group document does not exist');
+          setGroupData(null);
         }
       } catch (error) {
         console.error('Error loading group data:', error);
+        setGroupData(null);
       }
     };
 
@@ -160,6 +192,50 @@ export default function ChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Cleanup long press timer on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+      }
+    };
+  }, []);
+
+  // Handle return from source/destination selection
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const selectedSource = sessionStorage.getItem('selectedSource');
+      if (selectedSource) {
+        try {
+          const source = JSON.parse(selectedSource);
+          const sourceValue = `${source.type}_${source.id}`;
+          
+          // Determine if this is for source or destination based on current modal state
+          if (showAddMaterial) {
+            setSourceGroup(sourceValue);
+          } else if (showRemoveMaterial) {
+            setDestinationGroup(sourceValue);
+          }
+          
+          // Clear the storage
+          sessionStorage.removeItem('selectedSource');
+        } catch (error) {
+          console.error('Error parsing selected source:', error);
+        }
+      }
+    };
+
+    // Check for selected source on mount
+    handleStorageChange();
+
+    // Listen for storage changes (in case user navigates back)
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [showAddMaterial, showRemoveMaterial]);
 
   const sendMessage = async (messageText: string) => {
     if (!messageText.trim() || !user || !groupData) return;
@@ -226,7 +302,15 @@ export default function ChatPage() {
   };
 
   const handleMaterialAdd = async () => {
-    if (!selectedMaterial || !materialAmount || !user || !groupData) return;
+    if (!selectedMaterial || !materialAmount || !user) {
+      alert('Please fill in all required fields');
+      return;
+    }
+    
+    if (!groupData) {
+      alert('Group data not loaded. Please refresh the page and try again.');
+      return;
+    }
 
     const amount = parseFloat(materialAmount);
     if (isNaN(amount) || amount <= 0) {
@@ -309,7 +393,15 @@ export default function ChatPage() {
   };
 
   const handleMaterialRemove = async () => {
-    if (!selectedMaterial || !materialAmount || !user || !groupData) return;
+    if (!selectedMaterial || !materialAmount || !user) {
+      alert('Please fill in all required fields');
+      return;
+    }
+    
+    if (!groupData) {
+      alert('Group data not loaded. Please refresh the page and try again.');
+      return;
+    }
 
     const amount = parseFloat(materialAmount);
     if (isNaN(amount) || amount <= 0) {
@@ -408,6 +500,246 @@ export default function ChatPage() {
 
   const isAdmin = user?.uid === groupData?.adminId;
 
+  // Long press handlers
+  const handleMessageMouseDown = (message: Message, event: React.MouseEvent) => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+    }
+    
+    longPressTimer.current = setTimeout(() => {
+      setSelectedMessage(message);
+      setMessageMenuPosition({ x: event.clientX, y: event.clientY });
+      setShowMessageMenu(true);
+    }, 500); // 500ms long press
+  };
+
+  const handleMessageMouseUp = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const handleMessageMouseLeave = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  // Touch handlers for mobile
+  const handleMessageTouchStart = (message: Message, event: React.TouchEvent) => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+    }
+    
+    const touch = event.touches[0];
+    longPressTimer.current = setTimeout(() => {
+      setSelectedMessage(message);
+      setMessageMenuPosition({ x: touch.clientX, y: touch.clientY });
+      setShowMessageMenu(true);
+    }, 500); // 500ms long press
+  };
+
+  const handleMessageTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  // Message menu actions
+  const handleDeleteMessage = async () => {
+    if (!selectedMessage || !isAdmin) return;
+
+    try {
+      const messageRef = doc(db, type === 'sites' ? 'sites' : 'stores', groupId, 'messages', selectedMessage.id);
+      await deleteDoc(messageRef);
+      setShowMessageMenu(false);
+      setSelectedMessage(null);
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      alert('Failed to delete message. Please try again.');
+    }
+  };
+
+  const handleViewUserProfile = async () => {
+    if (!selectedMessage) return;
+
+    try {
+      // Get user data from the message
+      const userData: SearchUser = {
+        id: selectedMessage.userId,
+        username: selectedMessage.userName,
+        email: selectedMessage.userName, // We'll use userName as email fallback
+        displayName: selectedMessage.userName,
+        photoURL: selectedMessage.userPhotoURL
+      };
+
+      // Try to get more detailed user info from users collection
+      try {
+        const userDoc = await getDoc(doc(db, 'users', selectedMessage.userId));
+        if (userDoc.exists()) {
+          const userInfo = userDoc.data();
+          userData.email = userInfo.email || userData.email;
+          userData.displayName = userInfo.displayName || userData.displayName;
+          userData.photoURL = userInfo.photoURL || userData.photoURL;
+        }
+      } catch (error) {
+        console.log('Could not fetch detailed user info, using message data');
+      }
+
+      setSelectedUser(userData);
+      setShowUserProfile(true);
+      setShowMessageMenu(false);
+      setSelectedMessage(null);
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      alert('Failed to load user profile. Please try again.');
+    }
+  };
+
+  // Load group members
+  const loadGroupMembers = async () => {
+    if (!groupData) return;
+
+    setIsLoadingMembers(true);
+    try {
+      const membersData: SearchUser[] = [];
+      
+      for (const memberId of groupData.members) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', memberId));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            membersData.push({
+              id: memberId,
+              username: userData.username || '',
+              email: userData.email || '',
+              displayName: userData.displayName || userData.username || '',
+              photoURL: userData.photoURL || ''
+            });
+          }
+        } catch (error) {
+          console.error(`Error loading user ${memberId}:`, error);
+        }
+      }
+      
+      setGroupMembers(membersData);
+    } catch (error) {
+      console.error('Error loading group members:', error);
+      alert('Failed to load group members. Please try again.');
+    } finally {
+      setIsLoadingMembers(false);
+    }
+  };
+
+  // Handle group settings update
+  const handleUpdateGroup = async () => {
+    if (!groupData || !editName.trim() || !editLocation.trim()) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    setIsUpdatingGroup(true);
+    try {
+      let photoURL = groupData.photoURL;
+      
+      // Upload new photo if selected
+      if (editPhotoFile) {
+        const publicId = `${user?.uid}/${type}/${groupId}/${Date.now()}`;
+        const signRes = await fetch("/api/cloudinary-sign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ publicId, folder: `${type}/${groupId}`, overwrite: true }),
+        });
+        
+        if (!signRes.ok) throw new Error("Failed to get Cloudinary signature");
+        const { timestamp, signature, cloudName, apiKey, folder } = await signRes.json();
+
+        const form = new FormData();
+        form.append("file", editPhotoFile);
+        form.append("api_key", apiKey);
+        form.append("timestamp", String(timestamp));
+        form.append("signature", signature);
+        form.append("public_id", publicId);
+        if (folder) form.append("folder", folder);
+
+        const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+          method: "POST",
+          body: form,
+        });
+        
+        if (!uploadRes.ok) throw new Error("Cloudinary upload failed");
+        const uploadData = await uploadRes.json();
+        photoURL = uploadData.secure_url;
+      }
+
+      // Update group document
+      await updateDoc(doc(db, type === 'sites' ? 'sites' : 'stores', groupId), {
+        name: editName.trim(),
+        location: editLocation.trim(),
+        photoURL
+      });
+
+      // Update local state
+      setGroupData(prev => prev ? {
+        ...prev,
+        name: editName.trim(),
+        location: editLocation.trim(),
+        photoURL
+      } : null);
+
+      setShowGroupSettings(false);
+      setEditName("");
+      setEditLocation("");
+      setEditPhotoFile(null);
+      setEditPhotoPreview(null);
+      
+      alert('Group updated successfully!');
+    } catch (error) {
+      console.error('Error updating group:', error);
+      alert('Failed to update group. Please try again.');
+    } finally {
+      setIsUpdatingGroup(false);
+    }
+  };
+
+  // Handle remove user
+  const handleRemoveUser = async (userId: string, userName: string) => {
+    if (!groupData || userId === groupData.adminId) {
+      alert('Cannot remove the admin or yourself');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to remove ${userName} from this group?`)) {
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, type === 'sites' ? 'sites' : 'stores', groupId), {
+        members: groupData.members.filter(id => id !== userId)
+      });
+
+      // Add system message
+      await addDoc(collection(db, type === 'sites' ? 'sites' : 'stores', groupId, 'messages'), {
+        text: `${userName} was removed from the group`,
+        timestamp: new Date(),
+        userId: 'system',
+        userName: 'System',
+        type: 'text'
+      });
+
+      // Reload group members
+      await loadGroupMembers();
+      
+      alert(`${userName} has been removed from the group`);
+    } catch (error) {
+      console.error('Error removing user:', error);
+      alert('Failed to remove user. Please try again.');
+    }
+  };
+
   const searchUsers = async (searchTerm: string) => {
     if (searchTerm.length < 2) {
       setSearchResults([]);
@@ -500,13 +832,23 @@ export default function ChatPage() {
     return (
       <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-white mb-2">Group not found</h2>
-          <button
-            onClick={() => router.push('/')}
-            className="px-6 py-3 bg-blue-500 text-white rounded-xl"
-          >
-            Go Home
-          </button>
+          {isLoading ? (
+            <>
+              <div className="w-16 h-16 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+              <h2 className="text-xl font-semibold text-white mb-2">Loading group...</h2>
+            </>
+          ) : (
+            <>
+              <h2 className="text-xl font-semibold text-white mb-2">Group not found</h2>
+              <p className="text-gray-400 text-sm mb-4">You may not have access to this group or it doesn't exist.</p>
+              <button
+                onClick={() => router.push('/')}
+                className="px-6 py-3 bg-blue-500 text-white rounded-xl"
+              >
+                Go Home
+              </button>
+            </>
+          )}
         </div>
       </div>
     );
@@ -585,11 +927,18 @@ export default function ChatPage() {
                 </div>
               )}
               
-              <div className={`rounded-2xl px-4 py-3 ${
-                message.userId === user?.uid 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-gray-800/50 text-white'
-              }`}>
+              <div 
+                className={`rounded-2xl px-4 py-3 cursor-pointer select-none ${
+                  message.userId === user?.uid 
+                    ? 'bg-blue-500 text-white' 
+                    : 'bg-gray-800/50 text-white'
+                }`}
+                onMouseDown={(e) => handleMessageMouseDown(message, e)}
+                onMouseUp={handleMessageMouseUp}
+                onMouseLeave={handleMessageMouseLeave}
+                onTouchStart={(e) => handleMessageTouchStart(message, e)}
+                onTouchEnd={handleMessageTouchEnd}
+              >
                 {message.type === 'text' && (
                   <p className="text-sm">{message.text}</p>
                 )}
@@ -787,20 +1136,41 @@ export default function ChatPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Source (Optional)</label>
-                <select
-                  value={sourceGroup}
-                  onChange={(e) => setSourceGroup(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
-                >
-                  <option value="none">No source (new material)</option>
-                  {userGroups
-                    .filter(group => group.id !== groupId)
-                    .map((group) => (
-                      <option key={`${group.type}_${group.id}`} value={`${group.type}_${group.id}`}>
-                        {group.name} ({group.type})
-                      </option>
-                    ))}
-                </select>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      if (sourceGroup === 'none') {
+                        setSourceGroup('');
+                      } else {
+                        setSourceGroup('none');
+                      }
+                    }}
+                    className={`w-full px-4 py-3 rounded-xl text-left transition-all duration-200 ${
+                      sourceGroup === 'none' 
+                        ? 'bg-blue-500/20 border border-blue-500/30 text-blue-300' 
+                        : 'bg-gray-700/50 border border-gray-600/50 text-white hover:bg-gray-600/50'
+                    }`}
+                  >
+                    No source (new material)
+                  </button>
+                  <button
+                    onClick={() => {
+                      // Navigate to source selection page
+                      const params = new URLSearchParams();
+                      params.set('type', 'source');
+                      params.set('currentGroupId', groupId);
+                      params.set('currentGroupType', type);
+                      router.push(`/select-source?${params.toString()}`);
+                    }}
+                    className={`w-full px-4 py-3 rounded-xl text-left transition-all duration-200 ${
+                      sourceGroup && sourceGroup !== 'none'
+                        ? 'bg-blue-500/20 border border-blue-500/30 text-blue-300' 
+                        : 'bg-gray-700/50 border border-gray-600/50 text-white hover:bg-gray-600/50'
+                    }`}
+                  >
+                    {sourceGroup && sourceGroup !== 'none' ? `Selected: ${sourceGroup}` : 'Select source...'}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -850,20 +1220,41 @@ export default function ChatPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Destination (Optional)</label>
-                <select
-                  value={destinationGroup}
-                  onChange={(e) => setDestinationGroup(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
-                >
-                  <option value="none">No destination (remove material)</option>
-                  {userGroups
-                    .filter(group => group.id !== groupId)
-                    .map((group) => (
-                      <option key={`${group.type}_${group.id}`} value={`${group.type}_${group.id}`}>
-                        {group.name} ({group.type})
-                      </option>
-                    ))}
-                </select>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      if (destinationGroup === 'none') {
+                        setDestinationGroup('');
+                      } else {
+                        setDestinationGroup('none');
+                      }
+                    }}
+                    className={`w-full px-4 py-3 rounded-xl text-left transition-all duration-200 ${
+                      destinationGroup === 'none' 
+                        ? 'bg-red-500/20 border border-red-500/30 text-red-300' 
+                        : 'bg-gray-700/50 border border-gray-600/50 text-white hover:bg-gray-600/50'
+                    }`}
+                  >
+                    No destination (remove material)
+                  </button>
+                  <button
+                    onClick={() => {
+                      // Navigate to destination selection page
+                      const params = new URLSearchParams();
+                      params.set('type', 'destination');
+                      params.set('currentGroupId', groupId);
+                      params.set('currentGroupType', type);
+                      router.push(`/select-source?${params.toString()}`);
+                    }}
+                    className={`w-full px-4 py-3 rounded-xl text-left transition-all duration-200 ${
+                      destinationGroup && destinationGroup !== 'none'
+                        ? 'bg-green-500/20 border border-green-500/30 text-green-300' 
+                        : 'bg-gray-700/50 border border-gray-600/50 text-white hover:bg-gray-600/50'
+                    }`}
+                  >
+                    {destinationGroup && destinationGroup !== 'none' ? `Selected: ${destinationGroup}` : 'Select destination...'}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -921,8 +1312,10 @@ export default function ChatPage() {
               <button
                 onClick={() => {
                   setShowAdminMenu(false);
-                  // TODO: Implement group settings
-                  alert('Group settings coming soon!');
+                  setEditName(groupData?.name || '');
+                  setEditLocation(groupData?.location || '');
+                  setEditPhotoPreview(groupData?.photoURL || null);
+                  setShowGroupSettings(true);
                 }}
                 className="w-full p-4 bg-gray-700/50 rounded-xl text-left hover:bg-gray-600/50 transition-colors duration-200"
               >
@@ -934,6 +1327,25 @@ export default function ChatPage() {
                   <div>
                     <p className="text-white font-medium">Group Settings</p>
                     <p className="text-gray-400 text-sm">Change name, location, and photo</p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowAdminMenu(false);
+                  loadGroupMembers();
+                  setShowRemoveUser(true);
+                }}
+                className="w-full p-4 bg-red-500/20 border border-red-500/30 rounded-xl text-left hover:bg-red-500/30 transition-colors duration-200"
+              >
+                <div className="flex items-center space-x-3">
+                  <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M22 10.5h-6m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
+                  </svg>
+                  <div>
+                    <p className="text-white font-medium">Remove User</p>
+                    <p className="text-gray-400 text-sm">Remove members from the group</p>
                   </div>
                 </div>
               </button>
@@ -1037,6 +1449,425 @@ export default function ChatPage() {
                 className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors duration-200"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Message Menu Modal */}
+      {showMessageMenu && selectedMessage && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-6">
+          <div className="bg-gray-800/90 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 max-w-sm w-full shadow-2xl shadow-black/50">
+            <div className="text-center mb-6">
+              <h3 className="text-lg font-semibold text-white mb-2">Message Options</h3>
+              <p className="text-gray-400 text-sm">Choose an action for this message</p>
+            </div>
+
+            <div className="space-y-3">
+              {isAdmin && (
+                <button
+                  onClick={handleDeleteMessage}
+                  className="w-full p-4 bg-red-500/20 border border-red-500/30 rounded-xl text-left hover:bg-red-500/30 transition-colors duration-200"
+                >
+                  <div className="flex items-center space-x-3">
+                    <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                    </svg>
+                    <div>
+                      <p className="text-white font-medium">Delete Message</p>
+                      <p className="text-gray-400 text-sm">Remove this message permanently</p>
+                    </div>
+                  </div>
+                </button>
+              )}
+
+              <button
+                onClick={handleViewUserProfile}
+                className="w-full p-4 bg-blue-500/20 border border-blue-500/30 rounded-xl text-left hover:bg-blue-500/30 transition-colors duration-200"
+              >
+                <div className="flex items-center space-x-3">
+                  <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                  </svg>
+                  <div>
+                    <p className="text-white font-medium">View Profile</p>
+                    <p className="text-gray-400 text-sm">See user information</p>
+                  </div>
+                </div>
+              </button>
+
+              {!isAdmin && (
+                <button
+                  onClick={() => {
+                    setShowMessageMenu(false);
+                    setSelectedMessage(null);
+                    loadGroupMembers();
+                    setShowViewMembers(true);
+                  }}
+                  className="w-full p-4 bg-green-500/20 border border-green-500/30 rounded-xl text-left hover:bg-green-500/30 transition-colors duration-200"
+                >
+                  <div className="flex items-center space-x-3">
+                    <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-4.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                    </svg>
+                    <div>
+                      <p className="text-white font-medium">View Group Members</p>
+                      <p className="text-gray-400 text-sm">See all group members</p>
+                    </div>
+                  </div>
+                </button>
+              )}
+            </div>
+
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowMessageMenu(false);
+                  setSelectedMessage(null);
+                }}
+                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors duration-200"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Profile Modal */}
+      {showUserProfile && selectedUser && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-6">
+          <div className="bg-gray-800/90 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 max-w-md w-full shadow-2xl shadow-black/50">
+            <div className="text-center mb-6">
+              <h3 className="text-xl font-semibold text-white mb-2">User Profile</h3>
+              <p className="text-gray-400 text-sm">User information</p>
+            </div>
+
+            <div className="space-y-6">
+              {/* Profile Picture */}
+              <div className="flex justify-center">
+                <div className="w-20 h-20 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
+                  {selectedUser.photoURL ? (
+                    <Image
+                      unoptimized
+                      src={selectedUser.photoURL}
+                      alt={selectedUser.displayName || selectedUser.email}
+                      width={80}
+                      height={80}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+
+              {/* User Information */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Name</label>
+                  <div className="px-4 py-3 bg-gray-700/50 rounded-xl text-white">
+                    {selectedUser.displayName || selectedUser.username || 'Not provided'}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
+                  <div className="px-4 py-3 bg-gray-700/50 rounded-xl text-white">
+                    {selectedUser.email || 'Not provided'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowUserProfile(false);
+                  setSelectedUser(null);
+                }}
+                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors duration-200"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Group Settings Modal */}
+      {showGroupSettings && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-6">
+          <div className="bg-gray-800/90 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 max-w-md w-full shadow-2xl shadow-black/50">
+            <div className="text-center mb-6">
+              <h3 className="text-xl font-semibold text-white mb-2">Group Settings</h3>
+              <p className="text-gray-400 text-sm">Update group information</p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Photo Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Group Photo</label>
+                <div className="flex items-center space-x-4">
+                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 p-0.5 flex-shrink-0">
+                    <div className="w-full h-full rounded-lg bg-gray-700 flex items-center justify-center overflow-hidden">
+                      {editPhotoPreview ? (
+                        <Image
+                          unoptimized
+                          src={editPhotoPreview}
+                          alt="Group photo"
+                          width={64}
+                          height={64}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m2.25-18v18m13.5-18v18m2.25-18v18M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Z" />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => editFileInputRef.current?.click()}
+                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors duration-200"
+                  >
+                    Change Photo
+                  </button>
+                </div>
+                <input
+                  ref={editFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setEditPhotoFile(file);
+                      const reader = new FileReader();
+                      reader.onload = (e) => {
+                        setEditPhotoPreview(e.target?.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Name *</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
+                  placeholder="Enter group name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Location *</label>
+                <input
+                  type="text"
+                  value={editLocation}
+                  onChange={(e) => setEditLocation(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
+                  placeholder="Enter location"
+                />
+              </div>
+            </div>
+
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowGroupSettings(false);
+                  setEditName("");
+                  setEditLocation("");
+                  setEditPhotoFile(null);
+                  setEditPhotoPreview(null);
+                }}
+                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateGroup}
+                disabled={isUpdatingGroup || !editName.trim() || !editLocation.trim()}
+                className="flex-1 px-4 py-3 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white rounded-xl font-medium transition-colors duration-200"
+              >
+                {isUpdatingGroup ? 'Updating...' : 'Update Group'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove User Modal */}
+      {showRemoveUser && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-6">
+          <div className="bg-gray-800/90 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 max-w-md w-full shadow-2xl shadow-black/50">
+            <div className="text-center mb-6">
+              <h3 className="text-xl font-semibold text-white mb-2">Remove User</h3>
+              <p className="text-gray-400 text-sm">Select a user to remove from the group</p>
+            </div>
+
+            {/* Search Bar */}
+            <div className="mb-4">
+              <input
+                type="text"
+                value={memberSearchTerm}
+                onChange={(e) => setMemberSearchTerm(e.target.value)}
+                placeholder="Search members..."
+                className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
+              />
+            </div>
+
+            {/* Members List */}
+            <div className="space-y-3 max-h-64 overflow-y-auto mb-6">
+              {isLoadingMembers ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-gray-600 border-t-blue-500 rounded-full animate-spin"></div>
+                  <span className="text-gray-400 text-sm ml-2">Loading members...</span>
+                </div>
+              ) : (
+                groupMembers
+                  .filter(member => 
+                    (member.displayName || '').toLowerCase().includes(memberSearchTerm.toLowerCase()) ||
+                    (member.email || '').toLowerCase().includes(memberSearchTerm.toLowerCase())
+                  )
+                  .filter(member => member.id !== groupData?.adminId) // Don't show admin
+                  .map((member) => (
+                    <div key={member.id} className="p-3 bg-gray-700/50 rounded-xl">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center">
+                            {member.photoURL ? (
+                              <Image
+                                unoptimized
+                                src={member.photoURL}
+                                alt={member.displayName || member.email || 'User'}
+                                width={40}
+                                height={40}
+                                className="w-full h-full rounded-full object-cover"
+                              />
+                            ) : (
+                              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                              </svg>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-white font-medium">{member.displayName || member.email || 'Unknown User'}</p>
+                            <p className="text-gray-400 text-sm">{member.email}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveUser(member.id, member.displayName || member.email || 'Unknown User')}
+                          className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors duration-200"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))
+              )}
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowRemoveUser(false);
+                  setMemberSearchTerm("");
+                }}
+                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors duration-200"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Members Modal */}
+      {showViewMembers && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-6">
+          <div className="bg-gray-800/90 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 max-w-md w-full shadow-2xl shadow-black/50">
+            <div className="text-center mb-6">
+              <h3 className="text-xl font-semibold text-white mb-2">Group Members</h3>
+              <p className="text-gray-400 text-sm">All members in this group</p>
+            </div>
+
+            {/* Search Bar */}
+            <div className="mb-4">
+              <input
+                type="text"
+                value={memberSearchTerm}
+                onChange={(e) => setMemberSearchTerm(e.target.value)}
+                placeholder="Search members..."
+                className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
+              />
+            </div>
+
+            {/* Members List */}
+            <div className="space-y-3 max-h-64 overflow-y-auto mb-6">
+              {isLoadingMembers ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-gray-600 border-t-blue-500 rounded-full animate-spin"></div>
+                  <span className="text-gray-400 text-sm ml-2">Loading members...</span>
+                </div>
+              ) : (
+                groupMembers
+                  .filter(member => 
+                    (member.displayName || '').toLowerCase().includes(memberSearchTerm.toLowerCase()) ||
+                    (member.email || '').toLowerCase().includes(memberSearchTerm.toLowerCase())
+                  )
+                  .map((member) => (
+                    <div key={member.id} className="p-3 bg-gray-700/50 rounded-xl">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center">
+                          {member.photoURL ? (
+                            <Image
+                              unoptimized
+                              src={member.photoURL}
+                              alt={member.displayName || member.email || 'User'}
+                              width={40}
+                              height={40}
+                              className="w-full h-full rounded-full object-cover"
+                            />
+                          ) : (
+                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2">
+                            <p className="text-white font-medium">{member.displayName || member.email || 'Unknown User'}</p>
+                            {member.id === groupData?.adminId && (
+                              <span className="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded-full">
+                                Admin
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-gray-400 text-sm">{member.email}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+              )}
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowViewMembers(false);
+                  setMemberSearchTerm("");
+                }}
+                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors duration-200"
+              >
+                Close
               </button>
             </div>
           </div>

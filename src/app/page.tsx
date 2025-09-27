@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/database/firebase";
 import { collection, query, where, getDocs, addDoc } from "firebase/firestore";
-import { MATERIAL_SETS, MaterialSet } from "@/data/materialSets";
+import { MATERIAL_SETS, MaterialSet, CATEGORIES } from "@/data/materialSets";
 
 interface Site {
   id: string;
@@ -45,7 +45,8 @@ export default function HomePage() {
   // Form states
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
-  const [selectedMaterialSet, setSelectedMaterialSet] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -103,6 +104,8 @@ export default function HomePage() {
     setShowAddOverlay(true);
     setName('');
     setLocation('');
+    setSelectedCategory('');
+    setSelectedCompanies([]);
     setPhotoFile(null);
     setPhotoPreview(null);
   };
@@ -124,8 +127,14 @@ export default function HomePage() {
   };
 
   const handleCreate = async () => {
-    if (!name.trim() || !location.trim() || !selectedMaterialSet || !user) {
+    if (!name.trim() || !location.trim() || !selectedCategory || !user) {
       alert('Please fill in all required fields');
+      return;
+    }
+
+    // Require at least one company to be selected
+    if (selectedCompanies.length === 0) {
+      alert('Please select at least one company');
       return;
     }
 
@@ -164,24 +173,33 @@ export default function HomePage() {
         photoURL = uploadData.secure_url;
       }
       
-      // Get materials from selected material set
-      const materialSet = MATERIAL_SETS.find(set => set.id === selectedMaterialSet);
-      const materials = materialSet ? materialSet.materials.map(material => ({
-        id: `${Date.now()}-${Math.random()}`,
-        name: material.name,
-        unit: material.unit,
-        amount: 0, // Start with 0 amount
-        location: name.trim()
-      })) : [];
+      // Get materials from selected companies
+      let materials: any[] = [];
+      selectedCompanies.forEach(companyId => {
+        const companySet = MATERIAL_SETS.find(set => set.id === companyId);
+        if (companySet) {
+          const companyMaterials = companySet.materials.map(material => ({
+            id: `${Date.now()}-${Math.random()}-${companyId}`,
+            name: material.name,
+            unit: material.unit,
+            amount: 0, // Start with 0 amount
+            location: name.trim(),
+            company: companyId
+          }));
+          materials = [...materials, ...companyMaterials];
+        }
+      });
 
       // Create document in Firebase
-      const newItemData = {
+      const newItemData: any = {
         name: name.trim(),
         location: location.trim(),
         photoURL,
         adminId: user.uid,
         members: [user.uid],
         materials,
+        selectedCategory,
+        selectedCompanies,
         createdAt: new Date(),
         lastActivity: 'Just created'
       };
@@ -205,7 +223,8 @@ export default function HomePage() {
       // Reset form
       setName('');
       setLocation('');
-      setSelectedMaterialSet('');
+      setSelectedCategory('');
+      setSelectedCompanies([]);
       setPhotoFile(null);
       setPhotoPreview(null);
       setShowAddOverlay(false);
@@ -249,25 +268,12 @@ export default function HomePage() {
             </div>
             
             <button
-              onClick={() => router.push('/settings')}
+              onClick={() => window.location.reload()}
               className="w-10 h-10 rounded-2xl bg-gray-800/50 backdrop-blur-xl border border-gray-700/30 flex items-center justify-center hover:bg-gray-700/50 transition-colors duration-200"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                {user?.photoURL ? (
-                  <Image
-                    unoptimized
-                    src={user.photoURL}
-                    alt="Profile"
-                    width={32}
-                    height={32}
-                    className="w-full h-full rounded-full object-cover"
-                  />
-                ) : (
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-                  </svg>
-                )}
-              </div>
+              <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+              </svg>
             </button>
           </div>
 
@@ -297,15 +303,17 @@ export default function HomePage() {
               </button>
             </div>
 
-            {/* Add Button */}
-            <button
-              onClick={handleAddClick}
-              className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-200 hover:scale-105"
-            >
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-            </button>
+            {/* Add Button - Only show when there are existing items */}
+            {currentItems.length > 0 && (
+              <button
+                onClick={handleAddClick}
+                className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-200 hover:scale-105"
+              >
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 
@@ -481,20 +489,54 @@ export default function HomePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Material Set *</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Category *</label>
                   <select
-                    value={selectedMaterialSet}
-                    onChange={(e) => setSelectedMaterialSet(e.target.value)}
+                    value={selectedCategory}
+                    onChange={(e) => {
+                      setSelectedCategory(e.target.value);
+                      setSelectedCompanies([]); // Reset companies when category changes
+                    }}
                     className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
                   >
-                    <option value="">Select a material set</option>
-                    {MATERIAL_SETS.map((set) => (
-                      <option key={set.id} value={set.id} className="bg-gray-800">
-                        {set.name} - {set.description}
+                    <option value="">Select a category</option>
+                    {CATEGORIES.map((category) => (
+                      <option key={category.id} value={category.id} className="bg-gray-800">
+                        {category.name} - {category.description}
                       </option>
                     ))}
                   </select>
                 </div>
+
+                {selectedCategory && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Select Companies *</label>
+                    <div className="space-y-3">
+                      {CATEGORIES.find(cat => cat.id === selectedCategory)?.companies.map((companyId) => {
+                        const company = MATERIAL_SETS.find(set => set.id === companyId);
+                        return company ? (
+                          <label key={company.id} className="flex items-center space-x-3 p-3 bg-gray-700/30 rounded-xl hover:bg-gray-700/50 transition-colors duration-200 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedCompanies.includes(company.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedCompanies(prev => [...prev, company.id]);
+                                } else {
+                                  setSelectedCompanies(prev => prev.filter(id => id !== company.id));
+                                }
+                              }}
+                              className="w-5 h-5 text-blue-500 bg-gray-600 border-gray-500 rounded focus:ring-blue-500 focus:ring-2"
+                            />
+                            <div className="flex-1">
+                              <p className="text-white font-medium">{company.name}</p>
+                              <p className="text-gray-400 text-sm">{company.description}</p>
+                            </div>
+                          </label>
+                        ) : null;
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Actions */}
@@ -508,7 +550,7 @@ export default function HomePage() {
                 </button>
                 <button
                   onClick={handleCreate}
-                  disabled={isCreating || !name.trim() || !location.trim() || !selectedMaterialSet}
+                  disabled={isCreating || !name.trim() || !location.trim() || !selectedCategory || selectedCompanies.length === 0}
                   className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:shadow-blue-500/40 disabled:opacity-50 text-white rounded-xl font-medium transition-all duration-200 disabled:cursor-not-allowed shadow-lg shadow-blue-500/25"
                 >
                   {isCreating ? (
