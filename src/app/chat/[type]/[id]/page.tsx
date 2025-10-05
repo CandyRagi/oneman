@@ -290,6 +290,8 @@ export default function ChatPage() {
     }
 
     try {
+      console.log('Adding material:', { selectedMaterial, amount, sourceGroup });
+      
       // Add material to current group
       const updatedMaterials = [...groupData.materials];
       const existingMaterial = updatedMaterials.find(m => m.name === selectedMaterial.name && m.unit === selectedMaterial.unit);
@@ -333,21 +335,30 @@ export default function ChatPage() {
       }
 
       // Add message about material transfer
-      await addDoc(collection(db, type === 'sites' ? 'sites' : 'stores', groupId, 'messages'), {
-        materialData: {
-          name: selectedMaterial.name,
-          amount,
-          unit: selectedMaterial.unit,
-          source: sourceGroup !== 'none' ? sourceGroup : undefined,
-          sourceType: sourceGroup !== 'none' ? (sourceGroup.split('_')[0] as 'site' | 'store') : undefined,
-          sourceId: sourceGroup !== 'none' ? sourceGroup.split('_')[1] : undefined
-        },
+      const materialData: any = {
+        name: selectedMaterial.name,
+        amount,
+        unit: selectedMaterial.unit
+      };
+      
+      if (sourceGroup && sourceGroup !== 'none') {
+        materialData.source = sourceGroup;
+        materialData.sourceType = sourceGroup.split('_')[0] as 'site' | 'store';
+        materialData.sourceId = sourceGroup.split('_')[1];
+      }
+
+      const messageData = {
+        materialData,
         timestamp: Timestamp.now(),
         userId: user.uid,
         userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
-        userPhotoURL: user.photoURL,
+        userPhotoURL: user.photoURL || null,
         type: 'material'
-      });
+      };
+      
+      console.log('Message data to be saved:', messageData);
+      
+      await addDoc(collection(db, type === 'sites' ? 'sites' : 'stores', groupId, 'messages'), messageData);
 
       setShowAddMaterial(false);
       setSelectedMaterial(null);
@@ -434,19 +445,24 @@ export default function ChatPage() {
       }
 
       // Add message about material transfer
+      const materialData: any = {
+        name: selectedMaterial.name,
+        amount: -amount, // Negative amount for removal
+        unit: selectedMaterial.unit
+      };
+      
+      if (destinationGroup && destinationGroup !== 'none') {
+        materialData.source = destinationGroup;
+        materialData.sourceType = destinationGroup.split('_')[0] as 'site' | 'store';
+        materialData.sourceId = destinationGroup.split('_')[1];
+      }
+
       await addDoc(collection(db, type === 'sites' ? 'sites' : 'stores', groupId, 'messages'), {
-        materialData: {
-          name: selectedMaterial.name,
-          amount: -amount, // Negative amount for removal
-          unit: selectedMaterial.unit,
-          source: destinationGroup !== 'none' ? destinationGroup : undefined,
-          sourceType: destinationGroup !== 'none' ? (destinationGroup.split('_')[0] as 'site' | 'store') : undefined,
-          sourceId: destinationGroup !== 'none' ? destinationGroup.split('_')[1] : undefined
-        },
+        materialData,
         timestamp: Timestamp.now(),
         userId: user.uid,
         userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
-        userPhotoURL: user.photoURL,
+        userPhotoURL: user.photoURL || null,
         type: 'material'
       });
 

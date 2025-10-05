@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/database/firebase";
-import { collection, query, where, getDocs, addDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, addDoc, Timestamp } from "firebase/firestore";
 import { MATERIAL_SETS } from "@/data/materialSets";
 import CreateSiteStoreModal from "@/components/modals/home-modals/CreateSiteStoreModal";
 
@@ -19,7 +19,7 @@ interface Site {
   unreadCount: number;
   adminId: string;
   members: string[];
-  createdAt: Date | { toDate(): Date };
+  createdAt: Date | { toDate(): Date } | any;
 }
 
 interface Store {
@@ -32,7 +32,7 @@ interface Store {
   unreadCount: number;
   adminId: string;
   members: string[];
-  createdAt: Date | { toDate(): Date };
+  createdAt: Date | { toDate(): Date } | any;
 }
 
 export default function HomePage() {
@@ -217,7 +217,7 @@ export default function HomePage() {
         }>;
         selectedCategory: string;
         selectedCompanies: string[];
-        createdAt: Date;
+        createdAt: any;
         lastActivity: string;
       } = {
         name: name.trim(),
@@ -228,7 +228,7 @@ export default function HomePage() {
         materials,
         selectedCategory,
         selectedCompanies,
-        createdAt: new Date(),
+        createdAt: Timestamp.now(),
         lastActivity: 'Just created'
       };
 
