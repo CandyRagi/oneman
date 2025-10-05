@@ -61,7 +61,7 @@ export default function CreateSiteStoreModal({
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-6">
-      <div className="bg-gray-800/90 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-8 max-w-sm w-full shadow-2xl shadow-black/50">
+      <div className="bg-gray-800/90 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-8 max-w-sm w-full max-h-[90vh] shadow-2xl shadow-black/50 overflow-y-auto">
         <div className="text-center mb-6">
           <h3 className="text-xl font-semibold text-white mb-2">
             Create {activeTab === 'sites' ? 'Site' : 'Store'}
