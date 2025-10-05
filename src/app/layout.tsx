@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import ClientLayout from "./ClientLayout"; // 👈 import client wrapper
+import { ModalProvider } from "../contexts/ModalContext";
 
 // 🔹 Metadata for your app
 export const metadata: Metadata = {
@@ -30,7 +31,9 @@ export default function RootLayout({
     <html lang="en">
       <body className="min-h-screen flex flex-col bg-gray-50 antialiased">
         {/* Delegate auth logic to client wrapper */}
-        <ClientLayout>{children}</ClientLayout>
+        <ModalProvider>
+          <ClientLayout>{children}</ClientLayout>
+        </ModalProvider>
       </body>
     </html>
   );

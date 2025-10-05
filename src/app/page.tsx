@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
+import { useModal } from "@/contexts/ModalContext";
 import { db } from "@/database/firebase";
 import { collection, query, where, getDocs, addDoc, Timestamp } from "firebase/firestore";
 import { MATERIAL_SETS } from "@/data/materialSets";
@@ -38,6 +39,7 @@ interface Store {
 export default function HomePage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { setIsAnyModalOpen } = useModal();
   const [pageLoading, setPageLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'sites' | 'stores'>('sites');
   const [showAddOverlay, setShowAddOverlay] = useState(false);
@@ -100,6 +102,11 @@ export default function HomePage() {
 
     loadUserData();
   }, [user]);
+
+  // Track modal state and update context
+  useEffect(() => {
+    setIsAnyModalOpen(showAddOverlay);
+  }, [showAddOverlay, setIsAnyModalOpen]);
 
   const handleAddClick = () => {
     setShowAddOverlay(true);

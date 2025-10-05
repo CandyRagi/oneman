@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { useModal } from "@/contexts/ModalContext";
 import { db } from "@/database/firebase";
 import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, updateDoc, arrayUnion, getDocs, deleteDoc, Timestamp } from "firebase/firestore";
 import Image from "next/image";
@@ -62,6 +63,7 @@ export default function ChatPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { setIsAnyModalOpen } = useModal();
   const type = params.type as string;
   const groupId = params.id as string;
   
@@ -173,40 +175,18 @@ export default function ChatPage() {
     };
   }, []);
 
-  // Handle return from source/destination selection
+  // Track modal states and update context
   useEffect(() => {
-    const handleStorageChange = () => {
-      const selectedSource = sessionStorage.getItem('selectedSource');
-      if (selectedSource) {
-        try {
-          const source = JSON.parse(selectedSource);
-          const sourceValue = `${source.type}_${source.id}`;
-          
-          // Determine if this is for source or destination based on current modal state
-          if (showAddMaterial) {
-            setSourceGroup(sourceValue);
-          } else if (showRemoveMaterial) {
-            setDestinationGroup(sourceValue);
-          }
-          
-          // Clear the storage
-          sessionStorage.removeItem('selectedSource');
-        } catch (error) {
-          console.error('Error parsing selected source:', error);
-        }
-      }
-    };
+    const isAnyModalOpen = showMaterialModal || showAddMaterial || showRemoveMaterial || 
+                          showAdminMenu || showAddMember || showMessageMenu || showUserProfile || 
+                          showGroupSettings || showRemoveUser || showViewMembers;
+    setIsAnyModalOpen(isAnyModalOpen);
+  }, [showMaterialModal, showAddMaterial, showRemoveMaterial, showAdminMenu, 
+      showAddMember, showMessageMenu, showUserProfile, showGroupSettings, 
+      showRemoveUser, showViewMembers, setIsAnyModalOpen]);
 
-    // Check for selected source on mount
-    handleStorageChange();
 
-    // Listen for storage changes (in case user navigates back)
-    window.addEventListener('storage', handleStorageChange);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [showAddMaterial, showRemoveMaterial]);
+
 
   const sendMessage = async (messageText: string) => {
     if (!messageText.trim() || !user || !groupData) return;
@@ -291,6 +271,7 @@ export default function ChatPage() {
 
     try {
       console.log('Adding material:', { selectedMaterial, amount, sourceGroup });
+      console.log('Current group data:', groupData);
       
       // Add material to current group
       const updatedMaterials = [...groupData.materials];
@@ -316,9 +297,12 @@ export default function ChatPage() {
       // Remove from source if specified
       if (sourceGroup && sourceGroup !== 'none') {
         const [sourceType, sourceId] = sourceGroup.split('_');
+        console.log('Attempting to access source:', { sourceType, sourceId, sourceGroup });
+        
         const sourceDoc = await getDoc(doc(db, sourceType, sourceId));
         if (sourceDoc.exists()) {
           const sourceData = sourceDoc.data();
+          console.log('Source data found:', sourceData);
           const sourceMaterials = sourceData.materials || [];
           const sourceMaterial = sourceMaterials.find((m: Material) => m.name === selectedMaterial.name && m.unit === selectedMaterial.unit);
           
@@ -330,7 +314,13 @@ export default function ChatPage() {
             await updateDoc(doc(db, sourceType, sourceId), {
               materials: sourceMaterials
             });
+            console.log('Successfully updated source materials');
+          } else {
+            console.log('Source material not found in source group');
           }
+        } else {
+          console.error('Source group not found:', { sourceType, sourceId });
+          throw new Error(`Source group not found: ${sourceType}/${sourceId}`);
         }
       }
 
@@ -427,9 +417,12 @@ export default function ChatPage() {
       // Add to destination if specified
       if (destinationGroup && destinationGroup !== 'none') {
         const [destType, destId] = destinationGroup.split('_');
+        console.log('Attempting to access destination:', { destType, destId, destinationGroup });
+        
         const destDoc = await getDoc(doc(db, destType, destId));
         if (destDoc.exists()) {
           const destData = destDoc.data();
+          console.log('Destination data found:', destData);
           const destMaterials = destData.materials || [];
           const destMaterial = destMaterials.find((m: Material) => m.name === selectedMaterial.name && m.unit === selectedMaterial.unit);
           
@@ -448,6 +441,10 @@ export default function ChatPage() {
           await updateDoc(doc(db, destType, destId), {
             materials: destMaterials
           });
+          console.log('Successfully updated destination materials');
+        } else {
+          console.error('Destination group not found:', { destType, destId });
+          throw new Error(`Destination group not found: ${destType}/${destId}`);
         }
       }
 
@@ -1074,12 +1071,9 @@ export default function ChatPage() {
         onSourceChange={setSourceGroup}
         onAdd={handleMaterialAdd}
         onSelectSource={() => {
-          const params = new URLSearchParams();
-          params.set('type', 'source');
-          params.set('currentGroupId', groupId);
-          params.set('currentGroupType', type);
-          router.push(`/select-source?${params.toString()}`);
+          // This is now handled by the inline selection
         }}
+        currentGroupId={groupId}
       />
 
       {/* Remove Material Modal */}
@@ -1098,12 +1092,9 @@ export default function ChatPage() {
         onDestinationChange={setDestinationGroup}
         onRemove={handleMaterialRemove}
         onSelectDestination={() => {
-          const params = new URLSearchParams();
-          params.set('type', 'destination');
-          params.set('currentGroupId', groupId);
-          params.set('currentGroupType', type);
-          router.push(`/select-source?${params.toString()}`);
+          // This is now handled by the inline selection
         }}
+        currentGroupId={groupId}
       />
 
       {/* Admin Menu Modal */}
