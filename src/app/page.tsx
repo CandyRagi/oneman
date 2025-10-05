@@ -19,7 +19,7 @@ interface Site {
   unreadCount: number;
   adminId: string;
   members: string[];
-  createdAt: Date | { toDate(): Date } | any;
+  createdAt: Date | { toDate(): Date };
 }
 
 interface Store {
@@ -32,7 +32,7 @@ interface Store {
   unreadCount: number;
   adminId: string;
   members: string[];
-  createdAt: Date | { toDate(): Date } | any;
+  createdAt: Date | { toDate(): Date };
 }
 
 export default function HomePage() {
@@ -201,25 +201,7 @@ export default function HomePage() {
       });
 
       // Create document in Firebase
-      const newItemData: {
-        name: string;
-        location: string;
-        photoURL: string | null;
-        adminId: string;
-        members: string[];
-        materials: Array<{
-          id: string;
-          name: string;
-          unit: string;
-          amount: number;
-          location: string;
-          company: string;
-        }>;
-        selectedCategory: string;
-        selectedCompanies: string[];
-        createdAt: any;
-        lastActivity: string;
-      } = {
+      const newItemData = {
         name: name.trim(),
         location: location.trim(),
         photoURL,

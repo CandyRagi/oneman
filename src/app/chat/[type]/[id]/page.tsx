@@ -335,7 +335,14 @@ export default function ChatPage() {
       }
 
       // Add message about material transfer
-      const materialData: any = {
+      const materialData: {
+        name: string;
+        amount: number;
+        unit: string;
+        source?: string;
+        sourceType?: 'site' | 'store';
+        sourceId?: string;
+      } = {
         name: selectedMaterial.name,
         amount,
         unit: selectedMaterial.unit
@@ -445,7 +452,14 @@ export default function ChatPage() {
       }
 
       // Add message about material transfer
-      const materialData: any = {
+      const materialData: {
+        name: string;
+        amount: number;
+        unit: string;
+        source?: string;
+        sourceType?: 'site' | 'store';
+        sourceId?: string;
+      } = {
         name: selectedMaterial.name,
         amount: -amount, // Negative amount for removal
         unit: selectedMaterial.unit
