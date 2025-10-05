@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/database/firebase";
-import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, updateDoc, arrayUnion, getDocs, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, updateDoc, arrayUnion, getDocs, deleteDoc, Timestamp } from "firebase/firestore";
 import Image from "next/image";
 import BackButton from "@/components/BackButton";
 import { Material } from "@/data/materialSets";
@@ -214,7 +214,7 @@ export default function ChatPage() {
     try {
       await addDoc(collection(db, type === 'sites' ? 'sites' : 'stores', groupId, 'messages'), {
         text: messageText.trim(),
-        timestamp: new Date(),
+        timestamp: Timestamp.now(),
         userId: user.uid,
         userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
         userPhotoURL: user.photoURL,
@@ -260,7 +260,7 @@ export default function ChatPage() {
       // Save message to Firebase
       await addDoc(collection(db, type === 'sites' ? 'sites' : 'stores', groupId, 'messages'), {
         imageURL: uploadData.secure_url,
-        timestamp: new Date(),
+        timestamp: Timestamp.now(),
         userId: user.uid,
         userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
         userPhotoURL: user.photoURL,
@@ -342,7 +342,7 @@ export default function ChatPage() {
           sourceType: sourceGroup !== 'none' ? (sourceGroup.split('_')[0] as 'site' | 'store') : undefined,
           sourceId: sourceGroup !== 'none' ? sourceGroup.split('_')[1] : undefined
         },
-        timestamp: new Date(),
+        timestamp: Timestamp.now(),
         userId: user.uid,
         userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
         userPhotoURL: user.photoURL,
@@ -443,7 +443,7 @@ export default function ChatPage() {
           sourceType: destinationGroup !== 'none' ? (destinationGroup.split('_')[0] as 'site' | 'store') : undefined,
           sourceId: destinationGroup !== 'none' ? destinationGroup.split('_')[1] : undefined
         },
-        timestamp: new Date(),
+        timestamp: Timestamp.now(),
         userId: user.uid,
         userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
         userPhotoURL: user.photoURL,
@@ -691,7 +691,7 @@ export default function ChatPage() {
       // Add system message
       await addDoc(collection(db, type === 'sites' ? 'sites' : 'stores', groupId, 'messages'), {
         text: `${userName} was removed from the group`,
-        timestamp: new Date(),
+        timestamp: Timestamp.now(),
         userId: 'system',
         userName: 'System',
         type: 'text'
@@ -750,7 +750,7 @@ export default function ChatPage() {
       // Add system message
       await addDoc(collection(db, type === 'sites' ? 'sites' : 'stores', groupId, 'messages'), {
         text: `${memberEmail} was added to the group`,
-        timestamp: new Date(),
+        timestamp: Timestamp.now(),
         userId: 'system',
         userName: 'System',
         type: 'text'
