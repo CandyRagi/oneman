@@ -91,7 +91,7 @@ export default function AddMaterialModal({
   }, [showSourceSelection, user, currentGroupId]);
 
   const handleSourceSelect = (item: GroupItem) => {
-    const sourceValue = `${item.type}_${item.id}`;
+    const sourceValue = `${item.type}s_${item.id}`; // Add 's' to make it plural (sites/stores)
     onSourceChange(sourceValue);
     setShowSourceSelection(false);
   };

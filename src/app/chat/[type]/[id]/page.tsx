@@ -410,7 +410,7 @@ export default function ChatPage() {
       }
 
       // Update group materials
-      await updateDoc(doc(db, type === 'sites' ? 'sites' : 'stores', groupId), {
+      await updateDoc(doc(db, type === 'site' ? 'sites' : 'stores', groupId), {
         materials: updatedMaterials
       });
 
