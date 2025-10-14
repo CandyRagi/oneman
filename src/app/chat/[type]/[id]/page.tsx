@@ -1273,7 +1273,7 @@ export default function ChatPage() {
         }
 
         .animate-slideUp {
-          animation: slideUp 0.3s ease-out;
+          animation: slideUp 0.33s ease-out;
         }
       `}</style>
     </div>
