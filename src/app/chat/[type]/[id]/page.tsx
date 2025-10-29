@@ -39,6 +39,30 @@ interface Message {
   type: 'text' | 'image' | 'material';
 }
 
+// Add this new interface after the Message interface
+interface MessageData {
+  text?: string;
+  imageURL?: string;
+  materialData?: {
+    name: string;
+    amount: number;
+    unit: string;
+    source?: string;
+    sourceType?: 'site' | 'store';
+    sourceId?: string;
+    sourceName?: string;
+    destination?: string;
+    destinationType?: 'site' | 'store';
+    destinationId?: string;
+    destinationName?: string;
+  };
+  timestamp: Timestamp;
+  userId: string;
+  userName: string;
+  userPhotoURL: string | null;
+  type: 'text' | 'image' | 'material';
+}
+
 interface GroupData {
   id: string;
   name: string;
@@ -289,7 +313,7 @@ export default function ChatPage() {
     });
 
     // Step 2: Prepare message for current group chat
-    const currentGroupMessageData: any = {
+    const currentGroupMessageData: MessageData = {
       materialData: {
         name: selectedMaterial.name,
         amount: amount, // Positive for addition
@@ -333,7 +357,7 @@ export default function ChatPage() {
         currentGroupMessageData.materialData.sourceName = sourceData.name;
 
         // Step 4: ADD MESSAGE TO SOURCE CHAT (THIS WAS MISSING!)
-        const sourceMessageData: any = {
+        const sourceMessageData: MessageData   = {
           materialData: {
             name: selectedMaterial.name,
             amount: -amount, // Negative for removal from source
@@ -431,7 +455,7 @@ export default function ChatPage() {
     });
 
     // Step 2: Add message to current group chat
-    const currentGroupMessageData: any = {
+    const currentGroupMessageData: MessageData = {
       materialData: {
         name: selectedMaterial.name,
         amount: -amount, // Negative for removal
@@ -481,7 +505,7 @@ export default function ChatPage() {
         currentGroupMessageData.materialData.destinationName = destData.name;
 
         // Step 4: ADD MESSAGE TO DESTINATION CHAT (THIS WAS MISSING!)
-        const destMessageData: any = {
+        const destMessageData: MessageData = {
           materialData: {
             name: selectedMaterial.name,
             amount: amount, // Positive for receiving
