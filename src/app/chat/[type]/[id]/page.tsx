@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
@@ -34,29 +36,6 @@ interface Message {
   userId: string;
   userName: string;
   userPhotoURL?: string;
-  type: 'text' | 'image' | 'material';
-}
-
-interface MessageData {
-  text?: string;
-  imageURL?: string;
-  materialData?: {
-    name: string;
-    amount: number;
-    unit: string;
-    source?: string;
-    sourceType?: 'site' | 'store';
-    sourceId?: string;
-    sourceName?: string;
-    destination?: string;
-    destinationType?: 'site' | 'store';
-    destinationId?: string;
-    destinationName?: string;
-  };
-  timestamp: Timestamp;
-  userId: string;
-  userName: string;
-  userPhotoURL: string | null;
   type: 'text' | 'image' | 'material';
 }
 
@@ -229,7 +208,7 @@ export default function ChatPage() {
       const signRes = await fetch("/api/cloudinary-sign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ publicId, folder: "chat", overwrite: true }),
+        body: JSON.stringify({ publicId, folder: "chat",  overwrite: true }),
       });
       
       if (!signRes.ok) throw new Error("Failed to get Cloudinary signature");
@@ -266,296 +245,296 @@ export default function ChatPage() {
   };
 
   const handleMaterialAdd = async () => {
-    if (!selectedMaterial || !materialAmount || !user) {
-      alert('Please fill in all required fields');
-      return;
-    }
+  if (!selectedMaterial || !materialAmount || !user) {
+    alert('Please fill in all required fields');
+    return;
+  }
+  
+  if (!groupData) {
+    alert('Group data not loaded. Please refresh the page and try again.');
+    return;
+  }
+
+  const amount = parseFloat(materialAmount);
+  if (isNaN(amount) || amount <= 0) {
+    alert('Please enter a valid positive amount');
+    return;
+  }
+
+  setIsProcessing(true);
+  try {
+    const batch = writeBatch(db);
+    const collectionPath = type === 'sites' ? 'sites' : 'stores';
     
-    if (!groupData) {
-      alert('Group data not loaded. Please refresh the page and try again.');
-      return;
-    }
-
-    const amount = parseFloat(materialAmount);
-    if (isNaN(amount) || amount <= 0) {
-      alert('Please enter a valid positive amount');
-      return;
-    }
-
-    setIsProcessing(true);
-    try {
-      const batch = writeBatch(db);
-      const collectionPath = type === 'sites' ? 'sites' : 'stores';
-      
-      // Step 1: Update current group materials (add)
-      const updatedMaterials = [...groupData.materials];
-      const existingMaterial = updatedMaterials.find(m => 
-        m.name === selectedMaterial.name && m.unit === selectedMaterial.unit
-      );
-      
-      if (existingMaterial) {
-        existingMaterial.amount += amount;
-      } else {
-        updatedMaterials.push({
-          id: Date.now().toString(),
-          name: selectedMaterial.name,
-          amount,
-          unit: selectedMaterial.unit,
-          location: groupData.name
-        });
-      }
-
-      batch.update(doc(db, collectionPath, groupId), {
-        materials: updatedMaterials
-      });
-
-      // Step 2: Prepare material data for current group message
-      const materialData: MessageData['materialData'] = {
+    // Step 1: Update current group materials (add)
+    const updatedMaterials = [...groupData.materials];
+    const existingMaterial = updatedMaterials.find(m => 
+      m.name === selectedMaterial.name && m.unit === selectedMaterial.unit
+    );
+    
+    if (existingMaterial) {
+      existingMaterial.amount += amount;
+    } else {
+      updatedMaterials.push({
+        id: Date.now().toString(),
         name: selectedMaterial.name,
-        amount: amount,
-        unit: selectedMaterial.unit
-      };
-
-      // Step 3: Remove from source if specified
-      if (sourceGroup && sourceGroup !== 'none') {
-        const [sourceType, sourceId] = sourceGroup.split('_');
-        const sourceDoc = await getDoc(doc(db, sourceType, sourceId));
-        
-        if (sourceDoc.exists()) {
-          const sourceData = sourceDoc.data();
-          const sourceMaterials = sourceData.materials || [];
-          const sourceMaterial = sourceMaterials.find((m: Material) => 
-            m.name === selectedMaterial.name && m.unit === selectedMaterial.unit
-          );
-          
-          if (sourceMaterial) {
-            sourceMaterial.amount -= amount;
-            if (sourceMaterial.amount <= 0) {
-              sourceMaterials.splice(sourceMaterials.indexOf(sourceMaterial), 1);
-            }
-            batch.update(doc(db, sourceType, sourceId), {
-              materials: sourceMaterials
-            });
-          }
-
-          // Add transfer info to material data
-          materialData.source = sourceGroup;
-          materialData.sourceType = sourceType.endsWith('s') 
-            ? sourceType.slice(0, -1) as 'site' | 'store'
-            : sourceType as 'site' | 'store';
-          materialData.sourceId = sourceId;
-          materialData.sourceName = sourceData.name;
-
-          // Step 4: ADD MESSAGE TO SOURCE CHAT
-          const sourceMessageData: MessageData = {
-            materialData: {
-              name: selectedMaterial.name,
-              amount: -amount,
-              unit: selectedMaterial.unit,
-              destination: `${collectionPath}_${groupId}`,
-              destinationType: collectionPath.slice(0, -1) as 'site' | 'store',
-              destinationId: groupId,
-              destinationName: groupData.name
-            },
-            timestamp: Timestamp.now(),
-            userId: user.uid,
-            userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
-            userPhotoURL: user.photoURL || null,
-            type: 'material'
-          };
-
-          batch.set(
-            doc(collection(db, sourceType, sourceId, 'messages')),
-            sourceMessageData
-          );
-        } else {
-          console.error('Source group not found:', { sourceType, sourceId, sourceGroup });
-          throw new Error(`Source group not found: ${sourceType}/${sourceId}`);
-        }
-      }
-
-      // Create the current group message with all data
-      const currentGroupMessageData: MessageData = {
-        materialData,
-        timestamp: Timestamp.now(),
-        userId: user.uid,
-        userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
-        userPhotoURL: user.photoURL || null,
-        type: 'material'
-      };
-
-      batch.set(
-        doc(collection(db, collectionPath, groupId, 'messages')),
-        currentGroupMessageData
-      );
-
-      await batch.commit();
-
-      setShowAddMaterial(false);
-      setSelectedMaterial(null);
-      setMaterialAmount("");
-      setSourceGroup("");
-      
-      alert('Material added successfully!' + (sourceGroup && sourceGroup !== 'none' ? ' Source group has been notified.' : ''));
-    } catch (error) {
-      console.error('Error adding material:', error);
-      if (error instanceof Error) {
-        alert(`Failed to add material: ${error.message}`);
-      } else {
-        alert('Failed to add material. Please try again.');
-      }
-    } finally {
-      setIsProcessing(false);
+        amount,
+        unit: selectedMaterial.unit,
+        location: groupData.name
+      });
     }
-  };
+
+    batch.update(doc(db, collectionPath, groupId), {
+      materials: updatedMaterials
+    });
+
+    // Step 2: Prepare message for current group chat
+    const currentGroupMessageData: any = {
+      materialData: {
+        name: selectedMaterial.name,
+        amount: amount, // Positive for addition
+        unit: selectedMaterial.unit
+      },
+      timestamp: Timestamp.now(),
+      userId: user.uid,
+      userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
+      userPhotoURL: user.photoURL || null,
+      type: 'material'
+    };
+
+    // Step 3: Remove from source if specified
+    if (sourceGroup && sourceGroup !== 'none') {
+      const [sourceType, sourceId] = sourceGroup.split('_');
+      const sourceDoc = await getDoc(doc(db, sourceType, sourceId));
+      
+      if (sourceDoc.exists()) {
+        const sourceData = sourceDoc.data();
+        const sourceMaterials = sourceData.materials || [];
+        const sourceMaterial = sourceMaterials.find((m: Material) => 
+          m.name === selectedMaterial.name && m.unit === selectedMaterial.unit
+        );
+        
+        if (sourceMaterial) {
+          sourceMaterial.amount -= amount;
+          if (sourceMaterial.amount <= 0) {
+            sourceMaterials.splice(sourceMaterials.indexOf(sourceMaterial), 1);
+          }
+          batch.update(doc(db, sourceType, sourceId), {
+            materials: sourceMaterials
+          });
+        }
+
+        // Add transfer info to current group message
+        currentGroupMessageData.materialData.source = sourceGroup;
+        currentGroupMessageData.materialData.sourceType = sourceType.endsWith('s') 
+          ? sourceType.slice(0, -1)
+          : sourceType;
+        currentGroupMessageData.materialData.sourceId = sourceId;
+        currentGroupMessageData.materialData.sourceName = sourceData.name;
+
+        // Step 4: ADD MESSAGE TO SOURCE CHAT (THIS WAS MISSING!)
+        const sourceMessageData: any = {
+          materialData: {
+            name: selectedMaterial.name,
+            amount: -amount, // Negative for removal from source
+            unit: selectedMaterial.unit,
+            destination: `${collectionPath}_${groupId}`,
+            destinationType: collectionPath.slice(0, -1), // sites -> site, stores -> store
+            destinationId: groupId,
+            destinationName: groupData.name
+          },
+          timestamp: Timestamp.now(),
+          userId: user.uid,
+          userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
+          userPhotoURL: user.photoURL || null,
+          type: 'material'
+        };
+
+        // Add message to source group's chat
+        batch.set(
+          doc(collection(db, sourceType, sourceId, 'messages')),
+          sourceMessageData
+        );
+      } else {
+        console.error('Source group not found:', { sourceType, sourceId, sourceGroup });
+        throw new Error(`Source group not found: ${sourceType}/${sourceId}`);
+      }
+    }
+
+    // Add message to current group's chat
+    batch.set(
+      doc(collection(db, collectionPath, groupId, 'messages')),
+      currentGroupMessageData
+    );
+
+    await batch.commit();
+
+    setShowAddMaterial(false);
+    setSelectedMaterial(null);
+    setMaterialAmount("");
+    setSourceGroup("");
+    
+    // Show success message
+    alert('Material added successfully!' + (sourceGroup && sourceGroup !== 'none' ? ' Source group has been notified.' : ''));
+  } catch (error) {
+    console.error('Error adding material:', error);
+    if (error instanceof Error) {
+      alert(`Failed to add material: ${error.message}`);
+    } else {
+      alert('Failed to add material. Please try again.');
+    }
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   const handleMaterialRemove = async () => {
-    if (!selectedMaterial || !materialAmount || !user) {
-      alert('Please fill in all required fields');
-      return;
-    }
+  if (!selectedMaterial || !materialAmount || !user) {
+    alert('Please fill in all required fields');
+    return;
+  }
+  
+  if (!groupData) {
+    alert('Group data not loaded. Please refresh the page and try again.');
+    return;
+  }
+
+  const amount = parseFloat(materialAmount);
+  if (isNaN(amount) || amount <= 0) {
+    alert('Please enter a valid positive amount');
+    return;
+  }
+
+  if (amount > selectedMaterial.amount) {
+    alert(`Insufficient material. Available: ${selectedMaterial.amount} ${selectedMaterial.unit}`);
+    return;
+  }
+
+  setIsProcessing(true);
+  try {
+    const batch = writeBatch(db);
+    const collectionPath = type === 'sites' ? 'sites' : 'stores';
+
+    // Step 1: Remove from current group
+    const updatedMaterials = [...groupData.materials];
+    const materialIndex = updatedMaterials.findIndex(m => m.id === selectedMaterial.id);
     
-    if (!groupData) {
-      alert('Group data not loaded. Please refresh the page and try again.');
-      return;
-    }
-
-    const amount = parseFloat(materialAmount);
-    if (isNaN(amount) || amount <= 0) {
-      alert('Please enter a valid positive amount');
-      return;
-    }
-
-    if (amount > selectedMaterial.amount) {
-      alert(`Insufficient material. Available: ${selectedMaterial.amount} ${selectedMaterial.unit}`);
-      return;
-    }
-
-    setIsProcessing(true);
-    try {
-      const batch = writeBatch(db);
-      const collectionPath = type === 'sites' ? 'sites' : 'stores';
-
-      // Step 1: Remove from current group
-      const updatedMaterials = [...groupData.materials];
-      const materialIndex = updatedMaterials.findIndex(m => m.id === selectedMaterial.id);
-      
-      if (materialIndex !== -1) {
-        updatedMaterials[materialIndex].amount -= amount;
-        if (updatedMaterials[materialIndex].amount <= 0) {
-          updatedMaterials.splice(materialIndex, 1);
-        }
+    if (materialIndex !== -1) {
+      updatedMaterials[materialIndex].amount -= amount;
+      if (updatedMaterials[materialIndex].amount <= 0) {
+        updatedMaterials.splice(materialIndex, 1);
       }
+    }
 
-      batch.update(doc(db, collectionPath, groupId), {
-        materials: updatedMaterials
-      });
+    batch.update(doc(db, collectionPath, groupId), {
+      materials: updatedMaterials
+    });
 
-      // Step 2: Prepare material data for current group message
-      const materialData: MessageData['materialData'] = {
+    // Step 2: Add message to current group chat
+    const currentGroupMessageData: any = {
+      materialData: {
         name: selectedMaterial.name,
-        amount: -amount,
+        amount: -amount, // Negative for removal
         unit: selectedMaterial.unit
-      };
+      },
+      timestamp: Timestamp.now(),
+      userId: user.uid,
+      userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
+      userPhotoURL: user.photoURL || null,
+      type: 'material'
+    };
 
-      // Step 3: Add to destination if specified
-      if (destinationGroup && destinationGroup !== 'none') {
-        const [destType, destId] = destinationGroup.split('_');
-        const destDoc = await getDoc(doc(db, destType, destId));
-        
-        if (destDoc.exists()) {
-          const destData = destDoc.data();
-          const destMaterials = destData.materials || [];
-          const destMaterial = destMaterials.find((m: Material) => 
-            m.name === selectedMaterial.name && m.unit === selectedMaterial.unit
-          );
-          
-          if (destMaterial) {
-            destMaterial.amount += amount;
-          } else {
-            destMaterials.push({
-              id: `${Date.now()}-${Math.random()}`,
-              name: selectedMaterial.name,
-              amount,
-              unit: selectedMaterial.unit,
-              location: destData.name || 'Unknown Location'
-            });
-          }
-          
-          batch.update(doc(db, destType, destId), {
-            materials: destMaterials
-          });
-
-          // Add transfer info to material data
-          materialData.destination = destinationGroup;
-          materialData.destinationType = destType.endsWith('s') 
-            ? destType.slice(0, -1) as 'site' | 'store'
-            : destType as 'site' | 'store';
-          materialData.destinationId = destId;
-          materialData.destinationName = destData.name;
-
-          // Step 4: ADD MESSAGE TO DESTINATION CHAT
-          const destMessageData: MessageData = {
-            materialData: {
-              name: selectedMaterial.name,
-              amount: amount,
-              unit: selectedMaterial.unit,
-              source: `${collectionPath}_${groupId}`,
-              sourceType: collectionPath.slice(0, -1) as 'site' | 'store',
-              sourceId: groupId,
-              sourceName: groupData.name
-            },
-            timestamp: Timestamp.now(),
-            userId: user.uid,
-            userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
-            userPhotoURL: user.photoURL || null,
-            type: 'material'
-          };
-
-          batch.set(
-            doc(collection(db, destType, destId, 'messages')),
-            destMessageData
-          );
-        } else {
-          console.error('Destination group not found:', { destType, destId, destinationGroup });
-          throw new Error(`Destination group not found: ${destType}/${destId}`);
-        }
-      }
-
-      // Create the current group message with all data
-      const currentGroupMessageData: MessageData = {
-        materialData,
-        timestamp: Timestamp.now(),
-        userId: user.uid,
-        userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
-        userPhotoURL: user.photoURL || null,
-        type: 'material'
-      };
-
-      batch.set(
-        doc(collection(db, collectionPath, groupId, 'messages')),
-        currentGroupMessageData
-      );
-
-      await batch.commit();
-
-      setShowRemoveMaterial(false);
-      setSelectedMaterial(null);
-      setMaterialAmount("");
-      setDestinationGroup("");
+    // Step 3: Add to destination if specified
+    if (destinationGroup && destinationGroup !== 'none') {
+      const [destType, destId] = destinationGroup.split('_');
+      const destDoc = await getDoc(doc(db, destType, destId));
       
-      alert('Material transferred successfully! Destination group has been notified.');
-    } catch (error) {
-      console.error('Error removing material:', error);
-      if (error instanceof Error) {
-        alert(`Failed to remove material: ${error.message}`);
+      if (destDoc.exists()) {
+        const destData = destDoc.data();
+        const destMaterials = destData.materials || [];
+        const destMaterial = destMaterials.find((m: Material) => 
+          m.name === selectedMaterial.name && m.unit === selectedMaterial.unit
+        );
+        
+        if (destMaterial) {
+          destMaterial.amount += amount;
+        } else {
+          destMaterials.push({
+            id: `${Date.now()}-${Math.random()}`,
+            name: selectedMaterial.name,
+            amount,
+            unit: selectedMaterial.unit,
+            location: destData.name || 'Unknown Location'
+          });
+        }
+        
+        batch.update(doc(db, destType, destId), {
+          materials: destMaterials
+        });
+
+        // Add transfer info to current group message
+        currentGroupMessageData.materialData.destination = destinationGroup;
+        currentGroupMessageData.materialData.destinationType = destType.endsWith('s') 
+          ? destType.slice(0, -1)
+          : destType;
+        currentGroupMessageData.materialData.destinationId = destId;
+        currentGroupMessageData.materialData.destinationName = destData.name;
+
+        // Step 4: ADD MESSAGE TO DESTINATION CHAT (THIS WAS MISSING!)
+        const destMessageData: any = {
+          materialData: {
+            name: selectedMaterial.name,
+            amount: amount, // Positive for receiving
+            unit: selectedMaterial.unit,
+            source: `${collectionPath}_${groupId}`,
+            sourceType: collectionPath.slice(0, -1), // sites -> site, stores -> store
+            sourceId: groupId,
+            sourceName: groupData.name
+          },
+          timestamp: Timestamp.now(),
+          userId: user.uid,
+          userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
+          userPhotoURL: user.photoURL || null,
+          type: 'material'
+        };
+
+        // Add message to destination group's chat
+        batch.set(
+          doc(collection(db, destType, destId, 'messages')),
+          destMessageData
+        );
       } else {
-        alert('Failed to remove material. Please try again.');
+        console.error('Destination group not found:', { destType, destId, destinationGroup });
+        throw new Error(`Destination group not found: ${destType}/${destId}`);
       }
-    } finally {
-      setIsProcessing(false);
     }
-  };
+
+    // Add message to current group's chat
+    batch.set(
+      doc(collection(db, collectionPath, groupId, 'messages')),
+      currentGroupMessageData
+    );
+
+    await batch.commit();
+
+    setShowRemoveMaterial(false);
+    setSelectedMaterial(null);
+    setMaterialAmount("");
+    setDestinationGroup("");
+    
+    // Show success message
+    alert('Material transferred successfully! Destination group has been notified.');
+  } catch (error) {
+    console.error('Error removing material:', error);
+    if (error instanceof Error) {
+      alert(`Failed to remove material: ${error.message}`);
+    } else {
+      alert('Failed to remove material. Please try again.');
+    }
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   const formatTime = (timestamp: Date | { toDate(): Date }) => {
     const date = 'toDate' in timestamp ? timestamp.toDate() : timestamp;
@@ -868,20 +847,217 @@ export default function ChatPage() {
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black flex flex-col animate-fadeIn">
-      {/* Header - Keeping original but won't duplicate here for length */}
+      {/* Header */}
       <div className="relative z-10 px-4 pt-3 pb-3 border-b border-gray-700/30 bg-gray-900/50 backdrop-blur-sm transition-all duration-200">
-        {/* Header content here */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3 flex-1 min-w-0">
+            <BackButton />
+            <div className="flex items-center space-x-3 flex-1 min-w-0 animate-slideInLeft">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 p-0.5 flex-shrink-0">
+                <div className="w-full h-full rounded-lg bg-gray-700 flex items-center justify-center overflow-hidden">
+                  {groupData.photoURL ? (
+                    <Image
+                      unoptimized
+                      src={groupData.photoURL}
+                      alt={groupData.name}
+                      width={40}
+                      height={40}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m2.25-18v18m13.5-18v18m2.25-18v18M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-base font-semibold text-white truncate">{groupData.name}</h1>
+                <p className="text-gray-400 text-xs truncate">{groupData.location}</p>
+              </div>
+            </div>
+          </div>
+          
+          {isAdmin && (
+            <button
+              onClick={() => setShowAdminMenu(true)}
+              className="w-8 h-8 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0"
+            >
+              <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m0 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Messages Container - Keeping original structure */}
+      {/* Messages Container */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        {/* Messages here */}
+        {messages.length === 0 ? (
+          <div className="flex items-center justify-center h-full animate-fadeIn">
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-gray-700/30 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="text-gray-400 text-sm">No messages yet. Start the conversation!</p>
+            </div>
+          </div>
+        ) : (
+          messages.map((message, idx) => (
+            <div 
+              key={message.id} 
+              className={`flex ${message.userId === user?.uid ? 'justify-end' : 'justify-start'} animate-slideUp`}
+              style={{ animationDelay: `${idx * 50}ms` }}
+            >
+              <div className={`max-w-[85%] sm:max-w-xs ${message.userId === user?.uid ? 'order-2' : 'order-1'}`}>
+                {message.userId !== user?.uid && (
+                  <div className="flex items-center space-x-2 mb-1 animate-fadeIn">
+                    <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {message.userPhotoURL ? (
+                        <Image
+                          unoptimized
+                          src={message.userPhotoURL}
+                          alt={message.userName}
+                          width={24}
+                          height={24}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="text-xs text-gray-400 font-medium">{message.userName}</span>
+                  </div>
+                )}
+                
+                <div 
+                  className={`rounded-2xl px-4 py-3 cursor-pointer select-none transition-all duration-200 hover:shadow-lg ${
+                    message.userId === user?.uid 
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/20' 
+                      : 'bg-gray-800/70 text-gray-100 hover:bg-gray-750/70'
+                  }`}
+                  onMouseDown={() => handleMessageMouseDown(message)}
+                  onMouseUp={handleMessageMouseUp}
+                  onMouseLeave={handleMessageMouseLeave}
+                  onTouchStart={() => handleMessageTouchStart(message)}
+                  onTouchEnd={handleMessageTouchEnd}
+                >
+                  {message.type === 'text' && (
+                    <p className="text-sm leading-relaxed break-words">{message.text}</p>
+                  )}
+                  {message.type === 'image' && message.imageURL && (
+                    <div className="space-y-2 animate-fadeIn">
+                      <Image
+                        unoptimized
+                        src={message.imageURL}
+                        alt="Shared image"
+                        width={200}
+                        height={200}
+                        className="rounded-lg object-cover max-w-full h-auto"
+                      />
+                    </div>
+                  )}
+                  {message.type === 'material' && message.materialData && (
+                    <div className="space-y-2 animate-fadeIn">
+                      <div className="flex items-center space-x-2">
+                        <svg className={`w-5 h-5 ${message.materialData.amount < 0 ? 'text-red-300' : 'text-green-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+                        </svg>
+                        <span className="text-sm font-semibold">
+                          {message.materialData.amount < 0 ? 'Material Removed' : 'Material Added'}
+                        </span>
+                      </div>
+                      <div className="text-sm space-y-1 bg-black/20 rounded-lg p-2.5">
+                        <p className="font-semibold text-white">{message.materialData.name}</p>
+                        <p className={`text-lg font-bold ${message.materialData.amount < 0 ? 'text-red-300' : 'text-green-300'}`}>
+                          {message.materialData.amount < 0 ? '−' : '+'}{Math.abs(message.materialData.amount)} {message.materialData.unit}
+                        </p>
+                        {message.materialData.source && (
+                          <p className="text-xs text-gray-300 opacity-90">
+                            📦 {message.materialData.amount < 0 ? 'To' : 'From'}: {message.materialData.source}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className={`text-xs text-gray-500 mt-1.5 ${message.userId === user?.uid ? 'text-right' : 'text-left'}`}>
+                  {formatTime(message.timestamp)}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area - Keeping original */}
+      {/* Input Area */}
       <div className="relative z-10 px-4 pb-4 pt-3 border-t border-gray-700/30 bg-gray-900/50 backdrop-blur-sm">
-        {/* Input controls here */}
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setShowMaterialModal(true)}
+            disabled={isProcessing}
+            className="w-9 h-9 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center hover:from-green-600 hover:to-emerald-700 transition-all duration-200 flex-shrink-0 disabled:opacity-50 hover:shadow-lg hover:shadow-green-500/30"
+          >
+            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+            </svg>
+          </button>
+          
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isProcessing}
+            className="w-9 h-9 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center hover:from-purple-600 hover:to-pink-700 transition-all duration-200 flex-shrink-0 disabled:opacity-50 hover:shadow-lg hover:shadow-purple-500/30"
+          >
+            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+            </svg>
+          </button>
+          
+          <div className="flex-1 flex items-center bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-xl px-3 py-2 transition-all duration-200 hover:border-gray-600/50 focus-within:border-blue-500/50">
+            <input
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && !isProcessing && sendMessage(newMessage)}
+              placeholder="Type a message..."
+              disabled={isProcessing}
+              className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-sm disabled:opacity-50"
+            />
+            <button
+              onClick={() => sendMessage(newMessage)}
+              disabled={isProcessing || !newMessage.trim()}
+              className="w-7 h-7 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center hover:from-blue-600 hover:to-blue-700 transition-all duration-200 ml-2 flex-shrink-0 disabled:opacity-50 hover:shadow-lg hover:shadow-blue-500/30"
+            >
+              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        {isProcessing && (
+          <div className="mt-2 flex items-center space-x-2 text-xs text-gray-400 animate-pulse">
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+            <span>Processing...</span>
+          </div>
+        )}
+        
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleImageUpload(file);
+          }}
+          className="hidden"
+        />
       </div>
 
       {/* Modals */}
@@ -938,12 +1114,114 @@ export default function ChatPage() {
         onRemove={handleMaterialRemove}
         onSelectDestination={() => {}}
         currentGroupId={groupId}
-        currentGroupType={type as 'site' | 'store'}
-        currentGroupName={groupData.name}
-        isProcessing={isProcessing}
       />
 
-      {/* Other modals... */}
+      <AdminMenuModal
+        isOpen={showAdminMenu}
+        onClose={() => setShowAdminMenu(false)}
+        type={type as 'site' | 'store'}
+        onAddMember={() => {
+          setShowAdminMenu(false);
+          setShowAddMember(true);
+        }}
+        onGroupSettings={() => {
+          setShowAdminMenu(false);
+          setEditName(groupData?.name || '');
+          setEditLocation(groupData?.location || '');
+          setEditPhotoPreview(groupData?.photoURL || null);
+          setShowGroupSettings(true);
+        }}
+        onRemoveUser={() => {
+          setShowAdminMenu(false);
+          loadGroupMembers();
+          setShowRemoveUser(true);
+        }}
+      />
+
+      <AddMemberModal
+        isOpen={showAddMember}
+        onClose={() => {
+          setShowAddMember(false);
+          setNewMemberEmail("");
+          setSearchResults([]);
+        }}
+        type={type as 'site' | 'store'}
+        newMemberEmail={newMemberEmail}
+        onEmailChange={(email) => {
+          setNewMemberEmail(email);
+          searchUsers(email);
+        }}
+        searchResults={searchResults}
+        isSearching={isSearching}
+        onAddMember={handleAddMember}
+      />
+
+      <MessageMenuModal
+        isOpen={showMessageMenu}
+        onClose={() => {
+          setShowMessageMenu(false);
+          setSelectedMessage(null);
+        }}
+        selectedMessage={selectedMessage}
+        isAdmin={groupData?.adminId === user?.uid}
+        onDeleteMessage={handleDeleteMessage}
+        onViewUserProfile={handleViewUserProfile}
+        onViewGroupMembers={() => {
+          setShowMessageMenu(false);
+          setSelectedMessage(null);
+          loadGroupMembers();
+          setShowViewMembers(true);
+        }}
+      />
+
+      <UserProfileModal
+        isOpen={showUserProfile}
+        onClose={() => {
+          setShowUserProfile(false);
+          setSelectedUser(null);
+        }}
+        selectedUser={selectedUser}
+      />
+
+      <GroupSettingsModal
+        isOpen={showGroupSettings}
+        onClose={() => {
+          setShowGroupSettings(false);
+          setEditName("");
+          setEditLocation("");
+          setEditPhotoFile(null);
+          setEditPhotoPreview(null);
+        }}
+        groupData={groupData}
+        editName={editName}
+        onNameChange={setEditName}
+        editLocation={editLocation}
+        onLocationChange={setEditLocation}
+        onPhotoChange={setEditPhotoFile}
+        editPhotoPreview={editPhotoPreview}
+        onUpdateGroup={handleUpdateGroup}
+        isUpdatingGroup={isUpdatingGroup}
+      />
+
+      <RemoveUserModal
+        isOpen={showRemoveUser}
+        onClose={() => setShowRemoveUser(false)}
+        groupMembers={groupMembers}
+        memberSearchTerm={memberSearchTerm}
+        onSearchChange={setMemberSearchTerm}
+        onRemoveUser={handleRemoveUser}
+        isLoadingMembers={isLoadingMembers}
+      />
+
+      <ViewMembersModal
+        isOpen={showViewMembers}
+        onClose={() => setShowViewMembers(false)}
+        groupMembers={groupMembers}
+        memberSearchTerm={memberSearchTerm}
+        onSearchChange={setMemberSearchTerm}
+        isLoadingMembers={isLoadingMembers}
+        adminId={groupData?.adminId || ''}
+      />
 
       <style jsx global>{`
         html, body {
