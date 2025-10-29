@@ -25,10 +25,7 @@ interface RemoveMaterialModalProps {
   destinationGroup: string;
   onDestinationChange: (destination: string) => void;
   onRemove: () => void;
-  onSelectDestination: () => void;
   currentGroupId?: string;
-  currentGroupType?: "site" | "store";
-  currentGroupName?: string;
   isProcessing?: boolean;
 }
 
@@ -41,10 +38,7 @@ export default function RemoveMaterialModal({
   destinationGroup,
   onDestinationChange,
   onRemove,
-  onSelectDestination,
   currentGroupId,
-  currentGroupType,
-  currentGroupName,
   isProcessing = false,
 }: RemoveMaterialModalProps) {
   const { user } = useAuth();
@@ -53,7 +47,6 @@ export default function RemoveMaterialModal({
   const [stores, setStores] = useState<GroupItem[]>([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
-  const [destinationAvailability, setDestinationAvailability] = useState<string>("");
   const [selectedDestinationName, setSelectedDestinationName] = useState<string>("");
 
   // Load user's groups when destination selection opens
@@ -112,7 +105,6 @@ export default function RemoveMaterialModal({
 
   const handleDestinationSelect = async (item: GroupItem) => {
     setWarning(null);
-    setDestinationAvailability("");
 
     try {
       const collectionName = item.type === "site" ? "sites" : "stores";
@@ -144,7 +136,6 @@ export default function RemoveMaterialModal({
 
       // All checks passed
       setWarning(null);
-      setDestinationAvailability(item.name);
       setSelectedDestinationName(item.name);
 
       const destinationValue = `${item.type}s_${item.id}`;
@@ -234,10 +225,8 @@ export default function RemoveMaterialModal({
                 onClick={() => {
                   if (destinationGroup === "none") {
                     onDestinationChange("");
-                    setDestinationAvailability("");
                   } else {
                     onDestinationChange("none");
-                    setDestinationAvailability("");
                   }
                   setWarning(null);
                 }}

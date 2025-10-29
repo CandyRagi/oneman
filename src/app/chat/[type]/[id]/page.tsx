@@ -57,6 +57,31 @@ interface SearchUser {
   photoURL?: string;
 }
 
+interface MaterialMessageData {
+  name: string;
+  amount: number;
+  unit: string;
+  source?: string;
+  sourceType?: 'site' | 'store';
+  sourceId?: string;
+  sourceName?: string;
+  destination?: string;
+  destinationType?: 'site' | 'store';
+  destinationId?: string;
+  destinationName?: string;
+}
+
+interface ChatMessage {
+  text?: string;
+  imageURL?: string;
+  materialData?: MaterialMessageData;
+  timestamp: Timestamp;
+  userId: string;
+  userName: string;
+  userPhotoURL?: string | null;
+  type: 'text' | 'image' | 'material';
+}
+
 export default function ChatPage() {
   const params = useParams();
   const router = useRouter();
@@ -288,8 +313,7 @@ export default function ChatPage() {
       materials: updatedMaterials
     });
 
-    // Step 2: Prepare message for current group chat
-    const currentGroupMessageData: any = {
+    const currentGroupMessageData: ChatMessage = {
       materialData: {
         name: selectedMaterial.name,
         amount: amount, // Positive for addition
@@ -325,21 +349,23 @@ export default function ChatPage() {
         }
 
         // Add transfer info to current group message
-        currentGroupMessageData.materialData.source = sourceGroup;
-        currentGroupMessageData.materialData.sourceType = sourceType.endsWith('s') 
-          ? sourceType.slice(0, -1)
-          : sourceType;
-        currentGroupMessageData.materialData.sourceId = sourceId;
-        currentGroupMessageData.materialData.sourceName = sourceData.name;
+        if (currentGroupMessageData.materialData) {
+          currentGroupMessageData.materialData.source = sourceGroup;
+          currentGroupMessageData.materialData.sourceType = sourceType.endsWith('s') 
+            ? sourceType.slice(0, -1) as 'site' | 'store'
+            : sourceType as 'site' | 'store';
+          currentGroupMessageData.materialData.sourceId = sourceId;
+          currentGroupMessageData.materialData.sourceName = sourceData.name;
+        }
 
         // Step 4: ADD MESSAGE TO SOURCE CHAT (THIS WAS MISSING!)
-        const sourceMessageData: any = {
+        const sourceMessageData: ChatMessage = {
           materialData: {
             name: selectedMaterial.name,
             amount: -amount, // Negative for removal from source
             unit: selectedMaterial.unit,
             destination: `${collectionPath}_${groupId}`,
-            destinationType: collectionPath.slice(0, -1), // sites -> site, stores -> store
+            destinationType: collectionPath.slice(0, -1) as 'site' | 'store',
             destinationId: groupId,
             destinationName: groupData.name
           },
@@ -431,7 +457,7 @@ export default function ChatPage() {
     });
 
     // Step 2: Add message to current group chat
-    const currentGroupMessageData: any = {
+    const currentGroupMessageData: ChatMessage = {
       materialData: {
         name: selectedMaterial.name,
         amount: -amount, // Negative for removal
@@ -473,21 +499,23 @@ export default function ChatPage() {
         });
 
         // Add transfer info to current group message
-        currentGroupMessageData.materialData.destination = destinationGroup;
-        currentGroupMessageData.materialData.destinationType = destType.endsWith('s') 
-          ? destType.slice(0, -1)
-          : destType;
-        currentGroupMessageData.materialData.destinationId = destId;
-        currentGroupMessageData.materialData.destinationName = destData.name;
+        if (currentGroupMessageData.materialData) {
+          currentGroupMessageData.materialData.destination = destinationGroup;
+          currentGroupMessageData.materialData.destinationType = destType.endsWith('s') 
+            ? destType.slice(0, -1) as 'site' | 'store'
+            : destType as 'site' | 'store';
+          currentGroupMessageData.materialData.destinationId = destId;
+          currentGroupMessageData.materialData.destinationName = destData.name;
+        }
 
         // Step 4: ADD MESSAGE TO DESTINATION CHAT (THIS WAS MISSING!)
-        const destMessageData: any = {
+        const destMessageData: ChatMessage = {
           materialData: {
             name: selectedMaterial.name,
             amount: amount, // Positive for receiving
             unit: selectedMaterial.unit,
             source: `${collectionPath}_${groupId}`,
-            sourceType: collectionPath.slice(0, -1), // sites -> site, stores -> store
+            sourceType: collectionPath.slice(0, -1) as 'site' | 'store',
             sourceId: groupId,
             sourceName: groupData.name
           },
@@ -1094,7 +1122,6 @@ export default function ChatPage() {
         sourceGroup={sourceGroup}
         onSourceChange={setSourceGroup}
         onAdd={handleMaterialAdd}
-        onSelectSource={() => {}}
         currentGroupId={groupId}
       />
 
@@ -1112,7 +1139,6 @@ export default function ChatPage() {
         destinationGroup={destinationGroup}
         onDestinationChange={setDestinationGroup}
         onRemove={handleMaterialRemove}
-        onSelectDestination={() => {}}
         currentGroupId={groupId}
       />
 

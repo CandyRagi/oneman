@@ -25,7 +25,6 @@ interface AddMaterialModalProps {
   sourceGroup: string;
   onSourceChange: (value: string) => void;
   onAdd: () => void;
-  onSelectSource?: () => void;  // ✅ Optional
   currentGroupId: string;
 }
 
@@ -38,7 +37,6 @@ export default function AddMaterialModal({
   sourceGroup,
   onSourceChange,
   onAdd,
-  onSelectSource,
   currentGroupId,
 }: AddMaterialModalProps) {
   const { user } = useAuth();
