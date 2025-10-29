@@ -134,7 +134,7 @@ export default function ChatPage() {
   useEffect(() => {
     const loadGroupData = async () => {
       if (!user || !groupId) return;
-      
+      setIsLoading(true);
       try {
         const groupDoc = await getDoc(doc(db, type === 'sites' ? 'sites' : 'stores', groupId));
         if (groupDoc.exists()) {
@@ -158,6 +158,8 @@ export default function ChatPage() {
       } catch (error) {
         console.error('Error loading group data:', error);
         setGroupData(null);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -177,7 +179,6 @@ export default function ChatPage() {
         ...doc.data()
       })) as Message[];
       setMessages(messagesData);
-      setIsLoading(false);
     });
 
     return () => unsubscribe();
@@ -881,8 +882,8 @@ export default function ChatPage() {
           <div className="flex items-center space-x-3 flex-1 min-w-0">
             <BackButton />
             <div className="flex items-center space-x-3 flex-1 min-w-0 animate-slideInLeft">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 p-0.5 flex-shrink-0">
-                <div className="w-full h-full rounded-lg bg-gray-700 flex items-center justify-center overflow-hidden">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 border border-white flex-shrink-0">
+                <div className="w-full h-full rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
                   {groupData.photoURL ? (
                     <Image
                       unoptimized
@@ -942,7 +943,7 @@ export default function ChatPage() {
               <div className={`max-w-[85%] sm:max-w-xs ${message.userId === user?.uid ? 'order-2' : 'order-1'}`}>
                 {message.userId !== user?.uid && (
                   <div className="flex items-center space-x-2 mb-1 animate-fadeIn">
-                    <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0 overflow-hidden border border-white">
                       {message.userPhotoURL ? (
                         <Image
                           unoptimized

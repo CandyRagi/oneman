@@ -363,8 +363,8 @@ export default function HomePage() {
                 >
                   <div className="flex items-center space-x-4">
                     {/* Avatar */}
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 p-1 flex-shrink-0">
-                      <div className="w-full h-full rounded-xl bg-gray-700 flex items-center justify-center overflow-hidden">
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 border border-white flex-shrink-0">
+                      <div className="w-full h-full rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
                         {item.photoURL ? (
                           <Image
                             unoptimized
