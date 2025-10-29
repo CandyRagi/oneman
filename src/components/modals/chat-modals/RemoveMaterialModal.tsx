@@ -21,15 +21,12 @@ interface RemoveMaterialModalProps {
   onClose: () => void;
   selectedMaterial: Material | null;
   materialAmount: string;
-  onAmountChange: (amount: string) => void;
+  onAmountChange: (value: string) => void;
   destinationGroup: string;
-  onDestinationChange: (destination: string) => void;
+  onDestinationChange: (value: string) => void;
   onRemove: () => void;
-  onSelectDestination: () => void;
-  currentGroupId?: string;
-  currentGroupType?: "site" | "store";
-  currentGroupName?: string;
-  isProcessing?: boolean;
+  onSelectDestination?: () => void;  // ✅ Optional
+  currentGroupId: string;
 }
 
 export default function RemoveMaterialModal({

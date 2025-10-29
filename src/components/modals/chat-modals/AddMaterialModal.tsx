@@ -21,12 +21,12 @@ interface AddMaterialModalProps {
   onClose: () => void;
   selectedMaterial: Material | null;
   materialAmount: string;
-  onAmountChange: (amount: string) => void;
+  onAmountChange: (value: string) => void;
   sourceGroup: string;
-  onSourceChange: (source: string) => void;
+  onSourceChange: (value: string) => void;
   onAdd: () => void;
-  onSelectSource: () => void;
-  currentGroupId?: string;
+  onSelectSource?: () => void;  // ✅ Optional
+  currentGroupId: string;
 }
 
 export default function AddMaterialModal({

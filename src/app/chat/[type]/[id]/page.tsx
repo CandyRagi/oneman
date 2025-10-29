@@ -39,7 +39,6 @@ interface Message {
   type: 'text' | 'image' | 'material';
 }
 
-// Add this new interface after the Message interface
 interface MessageData {
   text?: string;
   imageURL?: string;
@@ -269,296 +268,302 @@ export default function ChatPage() {
   };
 
   const handleMaterialAdd = async () => {
-  if (!selectedMaterial || !materialAmount || !user) {
-    alert('Please fill in all required fields');
-    return;
-  }
-  
-  if (!groupData) {
-    alert('Group data not loaded. Please refresh the page and try again.');
-    return;
-  }
-
-  const amount = parseFloat(materialAmount);
-  if (isNaN(amount) || amount <= 0) {
-    alert('Please enter a valid positive amount');
-    return;
-  }
-
-  setIsProcessing(true);
-  try {
-    const batch = writeBatch(db);
-    const collectionPath = type === 'sites' ? 'sites' : 'stores';
+    if (!selectedMaterial || !materialAmount || !user) {
+      alert('Please fill in all required fields');
+      return;
+    }
     
-    // Step 1: Update current group materials (add)
-    const updatedMaterials = [...groupData.materials];
-    const existingMaterial = updatedMaterials.find(m => 
-      m.name === selectedMaterial.name && m.unit === selectedMaterial.unit
-    );
-    
-    if (existingMaterial) {
-      existingMaterial.amount += amount;
-    } else {
-      updatedMaterials.push({
-        id: Date.now().toString(),
-        name: selectedMaterial.name,
-        amount,
-        unit: selectedMaterial.unit,
-        location: groupData.name
-      });
+    if (!groupData) {
+      alert('Group data not loaded. Please refresh the page and try again.');
+      return;
     }
 
-    batch.update(doc(db, collectionPath, groupId), {
-      materials: updatedMaterials
-    });
+    const amount = parseFloat(materialAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alert('Please enter a valid positive amount');
+      return;
+    }
 
-    // Step 2: Prepare message for current group chat
-    const currentGroupMessageData: MessageData = {
-      materialData: {
-        name: selectedMaterial.name,
-        amount: amount, // Positive for addition
-        unit: selectedMaterial.unit
-      },
-      timestamp: Timestamp.now(),
-      userId: user.uid,
-      userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
-      userPhotoURL: user.photoURL || null,
-      type: 'material'
-    };
-
-    // Step 3: Remove from source if specified
-    if (sourceGroup && sourceGroup !== 'none') {
-      const [sourceType, sourceId] = sourceGroup.split('_');
-      const sourceDoc = await getDoc(doc(db, sourceType, sourceId));
+    setIsProcessing(true);
+    try {
+      const batch = writeBatch(db);
+      const collectionPath = type === 'sites' ? 'sites' : 'stores';
       
-      if (sourceDoc.exists()) {
-        const sourceData = sourceDoc.data();
-        const sourceMaterials = sourceData.materials || [];
-        const sourceMaterial = sourceMaterials.find((m: Material) => 
-          m.name === selectedMaterial.name && m.unit === selectedMaterial.unit
-        );
-        
-        if (sourceMaterial) {
-          sourceMaterial.amount -= amount;
-          if (sourceMaterial.amount <= 0) {
-            sourceMaterials.splice(sourceMaterials.indexOf(sourceMaterial), 1);
-          }
-          batch.update(doc(db, sourceType, sourceId), {
-            materials: sourceMaterials
-          });
-        }
-
-        // Add transfer info to current group message
-        currentGroupMessageData.materialData.source = sourceGroup;
-        currentGroupMessageData.materialData.sourceType = sourceType.endsWith('s') 
-          ? sourceType.slice(0, -1)
-          : sourceType;
-        currentGroupMessageData.materialData.sourceId = sourceId;
-        currentGroupMessageData.materialData.sourceName = sourceData.name;
-
-        // Step 4: ADD MESSAGE TO SOURCE CHAT (THIS WAS MISSING!)
-        const sourceMessageData: MessageData   = {
-          materialData: {
-            name: selectedMaterial.name,
-            amount: -amount, // Negative for removal from source
-            unit: selectedMaterial.unit,
-            destination: `${collectionPath}_${groupId}`,
-            destinationType: collectionPath.slice(0, -1), // sites -> site, stores -> store
-            destinationId: groupId,
-            destinationName: groupData.name
-          },
-          timestamp: Timestamp.now(),
-          userId: user.uid,
-          userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
-          userPhotoURL: user.photoURL || null,
-          type: 'material'
-        };
-
-        // Add message to source group's chat
-        batch.set(
-          doc(collection(db, sourceType, sourceId, 'messages')),
-          sourceMessageData
-        );
+      // Step 1: Update current group materials (add)
+      const updatedMaterials = [...groupData.materials];
+      const existingMaterial = updatedMaterials.find(m => 
+        m.name === selectedMaterial.name && m.unit === selectedMaterial.unit
+      );
+      
+      if (existingMaterial) {
+        existingMaterial.amount += amount;
       } else {
-        console.error('Source group not found:', { sourceType, sourceId, sourceGroup });
-        throw new Error(`Source group not found: ${sourceType}/${sourceId}`);
+        updatedMaterials.push({
+          id: Date.now().toString(),
+          name: selectedMaterial.name,
+          amount,
+          unit: selectedMaterial.unit,
+          location: groupData.name
+        });
       }
+
+      batch.update(doc(db, collectionPath, groupId), {
+        materials: updatedMaterials
+      });
+
+      // Step 2: Prepare material data for current group message
+      const materialData: MessageData['materialData'] = {
+        name: selectedMaterial.name,
+        amount: amount,
+        unit: selectedMaterial.unit
+      };
+
+      // Step 3: Remove from source if specified
+      if (sourceGroup && sourceGroup !== 'none') {
+        const [sourceType, sourceId] = sourceGroup.split('_');
+        const sourceDoc = await getDoc(doc(db, sourceType, sourceId));
+        
+        if (sourceDoc.exists()) {
+          const sourceData = sourceDoc.data();
+          const sourceMaterials = sourceData.materials || [];
+          const sourceMaterial = sourceMaterials.find((m: Material) => 
+            m.name === selectedMaterial.name && m.unit === selectedMaterial.unit
+          );
+          
+          if (sourceMaterial) {
+            sourceMaterial.amount -= amount;
+            if (sourceMaterial.amount <= 0) {
+              sourceMaterials.splice(sourceMaterials.indexOf(sourceMaterial), 1);
+            }
+            batch.update(doc(db, sourceType, sourceId), {
+              materials: sourceMaterials
+            });
+          }
+
+          // Add transfer info to material data
+          materialData.source = sourceGroup;
+          materialData.sourceType = sourceType.endsWith('s') 
+            ? sourceType.slice(0, -1) as 'site' | 'store'
+            : sourceType as 'site' | 'store';
+          materialData.sourceId = sourceId;
+          materialData.sourceName = sourceData.name;
+
+          // Step 4: ADD MESSAGE TO SOURCE CHAT
+          const sourceMessageData: MessageData = {
+            materialData: {
+              name: selectedMaterial.name,
+              amount: -amount,
+              unit: selectedMaterial.unit,
+              destination: `${collectionPath}_${groupId}`,
+              destinationType: collectionPath.slice(0, -1) as 'site' | 'store',
+              destinationId: groupId,
+              destinationName: groupData.name
+            },
+            timestamp: Timestamp.now(),
+            userId: user.uid,
+            userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
+            userPhotoURL: user.photoURL || null,
+            type: 'material'
+          };
+
+          // Add message to source group's chat
+          batch.set(
+            doc(collection(db, sourceType, sourceId, 'messages')),
+            sourceMessageData
+          );
+        } else {
+          console.error('Source group not found:', { sourceType, sourceId, sourceGroup });
+          throw new Error(`Source group not found: ${sourceType}/${sourceId}`);
+        }
+      }
+
+      // Create the current group message with all data
+      const currentGroupMessageData: MessageData = {
+        materialData,
+        timestamp: Timestamp.now(),
+        userId: user.uid,
+        userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
+        userPhotoURL: user.photoURL || null,
+        type: 'material'
+      };
+
+      // Add message to current group's chat
+      batch.set(
+        doc(collection(db, collectionPath, groupId, 'messages')),
+        currentGroupMessageData
+      );
+
+      await batch.commit();
+
+      setShowAddMaterial(false);
+      setSelectedMaterial(null);
+      setMaterialAmount("");
+      setSourceGroup("");
+      
+      // Show success message
+      alert('Material added successfully!' + (sourceGroup && sourceGroup !== 'none' ? ' Source group has been notified.' : ''));
+    } catch (error) {
+      console.error('Error adding material:', error);
+      if (error instanceof Error) {
+        alert(`Failed to add material: ${error.message}`);
+      } else {
+        alert('Failed to add material. Please try again.');
+      }
+    } finally {
+      setIsProcessing(false);
     }
-
-    // Add message to current group's chat
-    batch.set(
-      doc(collection(db, collectionPath, groupId, 'messages')),
-      currentGroupMessageData
-    );
-
-    await batch.commit();
-
-    setShowAddMaterial(false);
-    setSelectedMaterial(null);
-    setMaterialAmount("");
-    setSourceGroup("");
-    
-    // Show success message
-    alert('Material added successfully!' + (sourceGroup && sourceGroup !== 'none' ? ' Source group has been notified.' : ''));
-  } catch (error) {
-    console.error('Error adding material:', error);
-    if (error instanceof Error) {
-      alert(`Failed to add material: ${error.message}`);
-    } else {
-      alert('Failed to add material. Please try again.');
-    }
-  } finally {
-    setIsProcessing(false);
-  }
-};
+  };
 
   const handleMaterialRemove = async () => {
-  if (!selectedMaterial || !materialAmount || !user) {
-    alert('Please fill in all required fields');
-    return;
-  }
-  
-  if (!groupData) {
-    alert('Group data not loaded. Please refresh the page and try again.');
-    return;
-  }
-
-  const amount = parseFloat(materialAmount);
-  if (isNaN(amount) || amount <= 0) {
-    alert('Please enter a valid positive amount');
-    return;
-  }
-
-  if (amount > selectedMaterial.amount) {
-    alert(`Insufficient material. Available: ${selectedMaterial.amount} ${selectedMaterial.unit}`);
-    return;
-  }
-
-  setIsProcessing(true);
-  try {
-    const batch = writeBatch(db);
-    const collectionPath = type === 'sites' ? 'sites' : 'stores';
-
-    // Step 1: Remove from current group
-    const updatedMaterials = [...groupData.materials];
-    const materialIndex = updatedMaterials.findIndex(m => m.id === selectedMaterial.id);
+    if (!selectedMaterial || !materialAmount || !user) {
+      alert('Please fill in all required fields');
+      return;
+    }
     
-    if (materialIndex !== -1) {
-      updatedMaterials[materialIndex].amount -= amount;
-      if (updatedMaterials[materialIndex].amount <= 0) {
-        updatedMaterials.splice(materialIndex, 1);
-      }
+    if (!groupData) {
+      alert('Group data not loaded. Please refresh the page and try again.');
+      return;
     }
 
-    batch.update(doc(db, collectionPath, groupId), {
-      materials: updatedMaterials
-    });
+    const amount = parseFloat(materialAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alert('Please enter a valid positive amount');
+      return;
+    }
 
-    // Step 2: Add message to current group chat
-    const currentGroupMessageData: MessageData = {
-      materialData: {
-        name: selectedMaterial.name,
-        amount: -amount, // Negative for removal
-        unit: selectedMaterial.unit
-      },
-      timestamp: Timestamp.now(),
-      userId: user.uid,
-      userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
-      userPhotoURL: user.photoURL || null,
-      type: 'material'
-    };
+    if (amount > selectedMaterial.amount) {
+      alert(`Insufficient material. Available: ${selectedMaterial.amount} ${selectedMaterial.unit}`);
+      return;
+    }
 
-    // Step 3: Add to destination if specified
-    if (destinationGroup && destinationGroup !== 'none') {
-      const [destType, destId] = destinationGroup.split('_');
-      const destDoc = await getDoc(doc(db, destType, destId));
+    setIsProcessing(true);
+    try {
+      const batch = writeBatch(db);
+      const collectionPath = type === 'sites' ? 'sites' : 'stores';
+
+      // Step 1: Remove from current group
+      const updatedMaterials = [...groupData.materials];
+      const materialIndex = updatedMaterials.findIndex(m => m.id === selectedMaterial.id);
       
-      if (destDoc.exists()) {
-        const destData = destDoc.data();
-        const destMaterials = destData.materials || [];
-        const destMaterial = destMaterials.find((m: Material) => 
-          m.name === selectedMaterial.name && m.unit === selectedMaterial.unit
-        );
-        
-        if (destMaterial) {
-          destMaterial.amount += amount;
-        } else {
-          destMaterials.push({
-            id: `${Date.now()}-${Math.random()}`,
-            name: selectedMaterial.name,
-            amount,
-            unit: selectedMaterial.unit,
-            location: destData.name || 'Unknown Location'
-          });
+      if (materialIndex !== -1) {
+        updatedMaterials[materialIndex].amount -= amount;
+        if (updatedMaterials[materialIndex].amount <= 0) {
+          updatedMaterials.splice(materialIndex, 1);
         }
-        
-        batch.update(doc(db, destType, destId), {
-          materials: destMaterials
-        });
-
-        // Add transfer info to current group message
-        currentGroupMessageData.materialData.destination = destinationGroup;
-        currentGroupMessageData.materialData.destinationType = destType.endsWith('s') 
-          ? destType.slice(0, -1)
-          : destType;
-        currentGroupMessageData.materialData.destinationId = destId;
-        currentGroupMessageData.materialData.destinationName = destData.name;
-
-        // Step 4: ADD MESSAGE TO DESTINATION CHAT (THIS WAS MISSING!)
-        const destMessageData: MessageData = {
-          materialData: {
-            name: selectedMaterial.name,
-            amount: amount, // Positive for receiving
-            unit: selectedMaterial.unit,
-            source: `${collectionPath}_${groupId}`,
-            sourceType: collectionPath.slice(0, -1), // sites -> site, stores -> store
-            sourceId: groupId,
-            sourceName: groupData.name
-          },
-          timestamp: Timestamp.now(),
-          userId: user.uid,
-          userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
-          userPhotoURL: user.photoURL || null,
-          type: 'material'
-        };
-
-        // Add message to destination group's chat
-        batch.set(
-          doc(collection(db, destType, destId, 'messages')),
-          destMessageData
-        );
-      } else {
-        console.error('Destination group not found:', { destType, destId, destinationGroup });
-        throw new Error(`Destination group not found: ${destType}/${destId}`);
       }
+
+      batch.update(doc(db, collectionPath, groupId), {
+        materials: updatedMaterials
+      });
+
+      // Step 2: Prepare material data for current group message
+      const materialData: MessageData['materialData'] = {
+        name: selectedMaterial.name,
+        amount: -amount,
+        unit: selectedMaterial.unit
+      };
+
+      // Step 3: Add to destination if specified
+      if (destinationGroup && destinationGroup !== 'none') {
+        const [destType, destId] = destinationGroup.split('_');
+        const destDoc = await getDoc(doc(db, destType, destId));
+        
+        if (destDoc.exists()) {
+          const destData = destDoc.data();
+          const destMaterials = destData.materials || [];
+          const destMaterial = destMaterials.find((m: Material) => 
+            m.name === selectedMaterial.name && m.unit === selectedMaterial.unit
+          );
+          
+          if (destMaterial) {
+            destMaterial.amount += amount;
+          } else {
+            destMaterials.push({
+              id: `${Date.now()}-${Math.random()}`,
+              name: selectedMaterial.name,
+              amount,
+              unit: selectedMaterial.unit,
+              location: destData.name || 'Unknown Location'
+            });
+          }
+          
+          batch.update(doc(db, destType, destId), {
+            materials: destMaterials
+          });
+
+          // Add transfer info to material data
+          materialData.destination = destinationGroup;
+          materialData.destinationType = destType.endsWith('s') 
+            ? destType.slice(0, -1) as 'site' | 'store'
+            : destType as 'site' | 'store';
+          materialData.destinationId = destId;
+          materialData.destinationName = destData.name;
+
+          // Step 4: ADD MESSAGE TO DESTINATION CHAT
+          const destMessageData: MessageData = {
+            materialData: {
+              name: selectedMaterial.name,
+              amount: amount,
+              unit: selectedMaterial.unit,
+              source: `${collectionPath}_${groupId}`,
+              sourceType: collectionPath.slice(0, -1) as 'site' | 'store',
+              sourceId: groupId,
+              sourceName: groupData.name
+            },
+            timestamp: Timestamp.now(),
+            userId: user.uid,
+            userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
+            userPhotoURL: user.photoURL || null,
+            type: 'material'
+          };
+
+          // Add message to destination group's chat
+          batch.set(
+            doc(collection(db, destType, destId, 'messages')),
+            destMessageData
+          );
+        } else {
+          console.error('Destination group not found:', { destType, destId, destinationGroup });
+          throw new Error(`Destination group not found: ${destType}/${destId}`);
+        }
+      }
+
+      // Create the current group message with all data
+      const currentGroupMessageData: MessageData = {
+        materialData,
+        timestamp: Timestamp.now(),
+        userId: user.uid,
+        userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
+        userPhotoURL: user.photoURL || null,
+        type: 'material'
+      };
+
+      // Add message to current group's chat
+      batch.set(
+        doc(collection(db, collectionPath, groupId, 'messages')),
+        currentGroupMessageData
+      );
+
+      await batch.commit();
+
+      setShowRemoveMaterial(false);
+      setSelectedMaterial(null);
+      setMaterialAmount("");
+      setDestinationGroup("");
+      
+      // Show success message
+      alert('Material transferred successfully! Destination group has been notified.');
+    } catch (error) {
+      console.error('Error removing material:', error);
+      if (error instanceof Error) {
+        alert(`Failed to remove material: ${error.message}`);
+      } else {
+        alert('Failed to remove material. Please try again.');
+      }
+    } finally {
+      setIsProcessing(false);
     }
-
-    // Add message to current group's chat
-    batch.set(
-      doc(collection(db, collectionPath, groupId, 'messages')),
-      currentGroupMessageData
-    );
-
-    await batch.commit();
-
-    setShowRemoveMaterial(false);
-    setSelectedMaterial(null);
-    setMaterialAmount("");
-    setDestinationGroup("");
-    
-    // Show success message
-    alert('Material transferred successfully! Destination group has been notified.');
-  } catch (error) {
-    console.error('Error removing material:', error);
-    if (error instanceof Error) {
-      alert(`Failed to remove material: ${error.message}`);
-    } else {
-      alert('Failed to remove material. Please try again.');
-    }
-  } finally {
-    setIsProcessing(false);
-  }
-};
+  };
 
   const formatTime = (timestamp: Date | { toDate(): Date }) => {
     const date = 'toDate' in timestamp ? timestamp.toDate() : timestamp;
@@ -915,7 +920,7 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Messages Container */}
+      {/* Messages Container - TRUNCATED FOR LENGTH */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full animate-fadeIn">
@@ -1138,6 +1143,9 @@ export default function ChatPage() {
         onRemove={handleMaterialRemove}
         onSelectDestination={() => {}}
         currentGroupId={groupId}
+        currentGroupType={type as 'site' | 'store'}
+        currentGroupName={groupData.name}
+        isProcessing={isProcessing}
       />
 
       <AdminMenuModal
