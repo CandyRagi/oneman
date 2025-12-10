@@ -28,8 +28,9 @@ interface ChatMessage {
 // --- Main Component ---
 export default function UniBotPage() {
   const { user } = useAuth();
-  const [apiKey, setApiKey] = useState("AIzaSyCkVuNwIq6l7ZKyYO4E4yeBkCSnpa1Yb5g");
+  const [apiKey] = useState(process.env.NEXT_PUBLIC_GEMINI_API_KEY || "");
   const [genAI, setGenAI] = useState<GoogleGenerativeAI | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [chat, setChat] = useState<any | null>(null); // Simplified for now
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -59,7 +60,7 @@ export default function UniBotPage() {
           // 1. Fetch Sites and Stores
           const sitesQuery = query(collection(db, 'sites'), where('members', 'array-contains', user.uid));
           const storesQuery = query(collection(db, 'stores'), where('members', 'array-contains', user.uid));
-          
+
           const [sitesSnapshot, storesSnapshot] = await Promise.all([
             getDocs(sitesQuery),
             getDocs(storesQuery),
@@ -172,17 +173,16 @@ export default function UniBotPage() {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((msg, index) => (
           <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div 
-              className={`max-w-sm md:max-w-md lg:max-w-lg px-5 py-3 rounded-2xl shadow-md ${ 
-                msg.role === 'user' 
-                  ? 'bg-blue-600 text-white' 
+            <div
+              className={`max-w-sm md:max-w-md lg:max-w-lg px-5 py-3 rounded-2xl shadow-md ${msg.role === 'user'
+                  ? 'bg-blue-600 text-white'
                   : 'bg-gray-700/50 text-gray-200'
-              }`}>
+                }`}>
               <p className="whitespace-pre-wrap">{msg.text}</p>
             </div>
           </div>
         ))}
-        
+
         {isLoading && (
           <div className="flex justify-start">
             <div className="max-w-sm md:max-w-md lg:max-w-lg px-5 py-3 rounded-2xl shadow-md bg-gray-700/50 text-gray-200 flex items-center space-x-2">
@@ -218,7 +218,7 @@ export default function UniBotPage() {
           </button>
         </div>
       </div>
-       <div className="h-20"></div>
+      <div className="h-20"></div>
     </div>
   );
 }

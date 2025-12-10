@@ -5,14 +5,14 @@ import { getAuth } from "firebase/auth";
 
 // ✅ Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyDQ_DiGHUH3quU8w370Vvm1laXJj-tVU4Y",
-  authDomain: "oneman-452e8.firebaseapp.com",
-  databaseURL: "https://oneman-452e8-default-rtdb.firebaseio.com",
-  projectId: "oneman-452e8",
-  storageBucket: "oneman-452e8.appspot.com", // 🔧 fixed
-  messagingSenderId: "24388063631",
-  appId: "1:24388063631:web:3599aec55a55a3fa103bfa",
-  measurementId: "G-Q4DK42SFTL"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 // Prevent re-initialization during hot reload

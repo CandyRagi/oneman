@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/database/firebase";
-import { collection, query, where, orderBy, limit, getDocs, collectionGroup, getDoc } from "firebase/firestore";
+import { query, where, orderBy, limit, getDocs, collectionGroup, getDoc } from "firebase/firestore";
 import { useAuth } from "@/hooks/useAuth";
-import Image from "next/image";
 import BackButton from "@/components/BackButton";
 
 interface MaterialUpdate {
